@@ -5,7 +5,7 @@ import PostDetail from '../components/postDetail';
 import {getMoviesDetail} from '../utils'
 import {Ref} from '../utils/VirtualRouter';
 
-const Detail = ({name}) => {
+const Detail = () => {
   const {pathname} = useLocation();
   const [movieDetail, setMovieDetail] = useState([]);  
   useEffect(() => {
@@ -16,7 +16,7 @@ const Detail = ({name}) => {
     })();
   }, []);
   
-  return <Ref name={`${name}-detail-transform`}>
+  return <Ref name={`detail-transform`}>
     <Layout>
       <section style={{padding: '60px 0'}}>
         <PostDetail detail={movieDetail} />

@@ -1,8 +1,7 @@
-import React, {useContext, useEffect, useRef} from 'react';
+import React, {useContext, useEffect, useRef, useState} from 'react';
 import {useLocation, useHistory} from 'react-router-dom';
 import {VirtualRouterContext, VirtualRouterConsumer} from './VirtualRouterContext';
 import {sleep} from './';
-import Pages from '../Pages';
 
 // const Observer = ({setVHistory, vHistory, setHistory, history, children}) => {
 //   useEffect(() => {
@@ -29,7 +28,8 @@ export const HistoryObserver = ({vHistory, children}) => {
   }, []);
   return <>{children}</>
 }
-
+// 맨처음에 렌더링 할 때 Loading 컴포넌트로 시간 차를 두고 그 사이에 렌더링이 되고 history를 사용 할 수 있게
+// 처음 렌더링 될 때는 history를 알지 못한다.
 export const Link = ({to, children, className}) => {
   return <VirtualRouterConsumer>
     {({vHistory, history}) => {
@@ -37,6 +37,7 @@ export const Link = ({to, children, className}) => {
         vHistory.push(pathName);
         await sleep(2000);
         history.push(pathName);
+        //애니메이션 작동
       }
       return <a className={className} onClick={gotoHandler(to)}>{children}</a>
     }}
@@ -45,9 +46,18 @@ export const Link = ({to, children, className}) => {
 
 export const Ref = ({name, ...props}) => {
   const context = useContext(VirtualRouterContext);
+  const history = useHistory(); // <Pages /> 컴포넌트의 history
   const comp = useRef();
   useEffect(() => {
-    context.setRef(name, comp.current);
+    let key; 
+    if(history === context.vHistory){
+      key = 'memory';
+    }else if(history === context.history){
+      key = 'browser'
+    }
+    context.setRef(`${key}-${name}`, comp.current);
+    console.log(context.refs)
   }, []);
   return <div ref={comp} {...props} />
 }
+

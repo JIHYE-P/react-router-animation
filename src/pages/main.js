@@ -4,7 +4,7 @@ import Posts from '../components/posts';
 import {getMoviesList} from '../utils'
 import {Ref} from '../utils/VirtualRouter';
 
-const Main = ({name}) => {
+const Main = () => {
   const [movies, setMovies] = useState([]);
   useEffect(() => {
     (async() => {
@@ -13,7 +13,7 @@ const Main = ({name}) => {
     })();
   }, []);
   
-  return <Ref name={`${name}-post-transform`}>
+  return <Ref name={`post-transform`}>
     <Layout>
       <section style={{padding: '60px 0'}}>
         <Posts posts={movies} />

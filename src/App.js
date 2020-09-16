@@ -1,24 +1,30 @@
 import './App.css';
-import React from 'react';
+import React, {useEffect, useState } from 'react';
 import {BrowserRouter, MemoryRouter, useHistory} from 'react-router-dom';
 import Pages from './Pages';
 
 import {VirtualRouterProvider} from './utils/VirtualRouterContext';
 import {HistoryObserver} from './utils/VirtualRouter';
 
-const VHistoryWrapper = () => {
+const VHistoryWrapper = ({children}) => {
   return <BrowserRouter>
     <HistoryObserver vHistory={useHistory()}>
-      <Pages name="browser" />
+      {children}
     </HistoryObserver>
   </BrowserRouter>
 }
 
 function App() {
+  const [isRender, setIsRender] = useState(false);
+  useEffect(() => {
+    setTimeout(() => setIsRender(true));
+  }, []);
   return <VirtualRouterProvider>
     <MemoryRouter>
-      <VHistoryWrapper />
-      <Pages name="memory" />
+      <VHistoryWrapper>
+        {isRender && <Pages />}  
+      </VHistoryWrapper>
+      {isRender && <Pages />}
     </MemoryRouter>
   </VirtualRouterProvider>
 }
