@@ -13,9 +13,9 @@ const Pages = () => <>
 
 const HistoryObserver = ({vHistory, children}) => {
   const location = useLocation();
-  const history = useHistory(); 
+  const history = useHistory(); // BrowserRouter history
   useEffect(() => {
-    console.log(vHistory, location.pathname) // memoryRouter history
+    console.log(vHistory, location.pathname) // MemoryRouter history
     vHistory.push('/');
   }, [location.pathname, vHistory]);
   return <>{children}</>
