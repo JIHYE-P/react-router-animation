@@ -19,6 +19,23 @@ import {sleep} from './';
 //   </VirtualRouterConsumer>
 // }
 
+// forwordRef는 부모컴포넌트가 자식컴포넌트 ref의 접근할 때 자식컴포넌트에서 사용
+export const Ref = ({name, ...props}) => {
+  const context = useContext(VirtualRouterContext);
+  const history = useHistory();
+  const comp = useRef();
+  useEffect(() => {
+    let key; 
+    if(history === context.vHistory){
+      key = 'memory';
+    }else if(history === context.history){
+      key = 'browser'
+    }
+    context.setRef(`${key}-${name}`, comp.current);
+  }, []);
+  return <div ref={comp} {...props} />
+}
+
 export const HistoryObserver = ({vHistory, children}) => {
   const context = useContext(VirtualRouterContext);
   const history = useHistory(); 
@@ -42,22 +59,6 @@ export const Link = ({to, children, className}) => {
     }}
   </VirtualRouterConsumer>
 }
-
-// export const Ref = ({name, ...props}) => {
-//   const context = useContext(VirtualRouterContext);
-//   const history = useHistory();
-//   const comp = useRef();
-//   useEffect(() => {
-//     let key; 
-//     if(history === context.vHistory){
-//       key = 'memory';
-//     }else if(history === context.history){
-//       key = 'browser'
-//     }
-//     context.setRef(`${key}-${name}`, comp.current);
-//   }, []);
-//   return <div ref={comp} {...props} />
-// }
 
 const p1Cache = f => {
   const store = new Map;
