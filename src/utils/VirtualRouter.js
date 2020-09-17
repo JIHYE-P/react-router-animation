@@ -1,5 +1,5 @@
-import React, {useContext, useEffect, useRef, useState} from 'react';
-import {useLocation, useHistory} from 'react-router-dom';
+import React, {useContext, useEffect, useRef} from 'react';
+import {useHistory} from 'react-router-dom';
 import {VirtualRouterContext, VirtualRouterConsumer} from './VirtualRouterContext';
 import {sleep} from './';
 
@@ -28,8 +28,7 @@ export const HistoryObserver = ({vHistory, children}) => {
   }, []);
   return <>{children}</>
 }
-// 맨처음에 렌더링 할 때 Loading 컴포넌트로 시간 차를 두고 그 사이에 렌더링이 되고 history를 사용 할 수 있게
-// 처음 렌더링 될 때는 history를 알지 못한다.
+
 export const Link = ({to, children, className}) => {
   return <VirtualRouterConsumer>
     {({vHistory, history}) => {
@@ -44,20 +43,52 @@ export const Link = ({to, children, className}) => {
   </VirtualRouterConsumer>
 }
 
-export const Ref = ({name, ...props}) => {
-  const context = useContext(VirtualRouterContext);
-  const history = useHistory(); // <Pages /> 컴포넌트의 history
-  const comp = useRef();
-  useEffect(() => {
-    let key; 
-    if(history === context.vHistory){
-      key = 'memory';
-    }else if(history === context.history){
-      key = 'browser'
-    }
-    context.setRef(`${key}-${name}`, comp.current);
-    console.log(context.refs)
-  }, []);
-  return <div ref={comp} {...props} />
+// export const Ref = ({name, ...props}) => {
+//   const context = useContext(VirtualRouterContext);
+//   const history = useHistory();
+//   const comp = useRef();
+//   useEffect(() => {
+//     let key; 
+//     if(history === context.vHistory){
+//       key = 'memory';
+//     }else if(history === context.history){
+//       key = 'browser'
+//     }
+//     context.setRef(`${key}-${name}`, comp.current);
+//   }, []);
+//   return <div ref={comp} {...props} />
+// }
+
+const p1Cache = f => {
+  const store = new Map;
+  console.log(store);
+  return arg => store.has(arg) ? store.get(arg) : store.set(arg, f(arg)).get(arg);
 }
 
+const RefCompFactory = p1Cache(tagName => {
+  const Make = ({name, children, ...props}) => {
+    const context = useContext(VirtualRouterContext);
+    const el = useRef(null);
+    const history = useHistory();
+
+    useEffect(() => {
+      if(!el) return;
+      if(history === context.history){
+        context.setRef(`browser.${name}`, el.current);
+      }else if(history === context.vHistory){
+        context.setRef(`memory.${name}`, el.current);
+      }
+      // console.log(context.refs)
+    }, [el]);
+    return React.createElement(tagName, {ref: el, ...props}, children);
+  }
+  return Make;
+});
+
+const RefComp = RefCompFactory('section');
+export const Ref = new Proxy(RefComp, {
+  get: (target, property) => {
+    // target => Make 함수
+    return RefCompFactory(property.toLowerCase())
+  }
+});

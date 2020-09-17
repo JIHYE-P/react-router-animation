@@ -13,13 +13,13 @@ const Main = () => {
     })();
   }, []);
   
-  return <Ref name={`post-transform`}>
+  return <Ref.section name='post-transform' className="ref-section">
     <Layout>
       <section style={{padding: '60px 0'}}>
         <Posts posts={movies} />
       </section>
     </Layout>
-  </Ref>
+  </Ref.section>
 }
 
 export default Main;

@@ -16,13 +16,13 @@ const Detail = () => {
     })();
   }, []);
   
-  return <Ref name={`detail-transform`}>
+  return <Ref.section name='detail-transform' className="ref-section">
     <Layout>
       <section style={{padding: '60px 0'}}>
         <PostDetail detail={movieDetail} />
       </section>
     </Layout>
-  </Ref>
+  </Ref.section>
 }
 
 export default Detail;

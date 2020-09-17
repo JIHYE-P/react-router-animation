@@ -7,6 +7,7 @@ const VirtualRouterProvider = (props) => {
   const [vHistory, setVHistory] = useState({});
   const [history, setHistory] = useState({});
   const [refs, setRefs] = useState({});
+
   return <Provider {...props} 
     value={{
       vHistory,
