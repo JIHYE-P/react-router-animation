@@ -59,7 +59,7 @@ const HistoryObserver = ({memoryHistory, children}) => {
 }
 
 /**
- * BrowerRouterComp 컴포넌트를 만든 이유는 
+ * BrowserRouterComp 컴포넌트를 만든 이유는 
  * 브라우저 페이지와, 메모리 페이지가 이동되기 위해선 상위 부모 라우터의 history가 필요한데
  * 부모 라우터의 history를 받을려면 컴포넌트로 만들어야한다.
  * 즉, HistoryObserver의 props `memoryHistory`는 메모리 라우터의 히스토리를 받기 위함이고,
@@ -214,13 +214,78 @@ const Ref = new Proxy(RefComp, {
 <Ref.div />, <Ref.span /> 등 
 Proxy의 property가 RefCompFactory 함수 인수값으로 들어가서 React.createElement 함수가 실행되어 jsx가 그려진다.
 ```
+
 좀 더 나아가서 컴포넌트마다 `<Ref.div>`을 여러번 사용하면 `React.createElement`을 반환하는 함수가 다 다른 메모리에 저장되서 사용되기 때문에
 자바스크립트의 메모라이제이션 Memorization (로컬 캐시) 기술을 통해 메모리에 특정 정보를 저장 기록하여 필요할 때마다 정보를 가져와 활용하는 방법으로 많은 메모리는 낭비하지 않고 필요한 부분만 사용하여 성능적인 부분을 개선할 수 있다.
+[메모라이제이션에 대해서](https://webisfree.com/2018-05-15/%EC%9E%90%EB%B0%94%EC%8A%A4%ED%81%AC%EB%A6%BD%ED%8A%B8-%EB%A9%94%EB%AA%A8%EB%9D%BC%EC%9D%B4%EC%A0%9C%EC%9D%B4%EC%85%98(memorization)-%EC%98%88%EC%A0%9C%EB%B3%B4%EA%B8%B0)
 
+```jsx
+// 메모라이제이션
+const pCached = f => {
+  const store = new Map;
+  return arg => store.has(arg) ? store.get(arg) : store.set(arg, f(arg)).get(arg);
+}
+```
+`store` 배열에 함수 파라미터로 들어온 `key`가 있으면 해당 `key`의 함수를 실행하고, 없으면 `store`에 정보를 추가해준다.
 
+```jsx
+const RefCompFactory = pCached(tagName => {
+  return ({name, children, ...props}) => {
+    const el = useRef();
+    return React.createElement(tagName, {ref: el.current, ...props}, children)
+  }
+});
+```
+`React.createElement` 함수를 `pCached` 인수값으로 넣어 `Ref`를 이용하여 동일한 jsx를 만들 때 불필요한 리소스를 줄일 수 있다.
 
+이제 `React.createElement`의 ref을 `PageTransitionContext`의 메모리 라우터의 ref, 브라우저 라우터의 ref를 각각 저장한다.
+```jsx
+const RefCompFactory = pCached(tagName => {
+  return ({name, children, ...props}) => {
+    const history = useHistory();
+    const {state, setState} = useContext(PageTransitionContext);
+    const el = useRef();
+    useEffect(() => {
+      if(!el) return;
+      if(state.history === history){
+        setState({ [`browser.${name}.ref`]: el.current });
+      }else if(state.memoryHistory === history){
+        setState({ [`memory.${name}.ref`]: el.current });
+      }
+    }, [el]); 
+    return React.createElement(tagName, {ref: el, ...props}, children)
+  }
+});
+```
 
+`context`의 `state` 값을 보면 페이지가 처음 렌더링 될 때 `ref`는 `undefined`로 들어오게 되는데, 그 이유는 렌더링이 될 떄 자식 컴포넌트가 먼저 그려지고 난 다음 부모 컴포넌트가 그려지게 되는데, 자식컴포넌트에서는 부모의 history를 넘겨받고 있는데 부모가 그려지기 전이라 자식 컴포넌트에서는 히스토리가 `undefined`로 나오는 것이다.
 
+그래서 부모와 자식간의 렌더링 시간차를 두어서 부모의 히스토리를 받아올 수 도록 한다.
+```jsx
+const BrowserRouterComp = ({children}) => {
+  const history = useHistory();
+  return <BrowserRouter>
+    <HistoryObserver memoryHistory={history}>
+      {children}
+    </HistoryObserver>
+  </BrowserRouter>
+}
+
+const App = () => {
+  const [isRender, setIsRender] = useState(false);
+  useEffect(() => {
+    setTimeout(() => {
+      setIsRender(true);
+    }, 1000)
+  }, []);
+  return <MemoryRouter>
+    <BrowserRouterComp>
+      {isRender && <Pages />}
+    </BrowserRouterComp>
+    {isRender && <Pages />}
+  </MemoryRouter>
+}
+```
 
 
 
