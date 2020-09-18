@@ -20,21 +20,21 @@ import {sleep} from './';
 // }
 
 // forwordRef는 부모컴포넌트가 자식컴포넌트 ref의 접근할 때 자식컴포넌트에서 사용
-export const Ref = ({name, ...props}) => {
-  const context = useContext(VirtualRouterContext);
-  const history = useHistory();
-  const comp = useRef();
-  useEffect(() => {
-    let key; 
-    if(history === context.vHistory){
-      key = 'memory';
-    }else if(history === context.history){
-      key = 'browser'
-    }
-    context.setRef(`${key}-${name}`, comp.current);
-  }, []);
-  return <div ref={comp} {...props} />
-}
+// export const Ref = ({name, ...props}) => {
+//   const context = useContext(VirtualRouterContext);
+//   const history = useHistory();
+//   const comp = useRef();
+//   useEffect(() => {
+//     let key; 
+//     if(history === context.vHistory){
+//       key = 'memory';
+//     }else if(history === context.history){
+//       key = 'browser'
+//     }
+//     context.setRef(`${key}-${name}`, comp.current);
+//   }, []);
+//   return <div ref={comp} {...props} />
+// }
 
 export const HistoryObserver = ({vHistory, children}) => {
   const context = useContext(VirtualRouterContext);
@@ -60,8 +60,9 @@ export const Link = ({to, children, className}) => {
   </VirtualRouterConsumer>
 }
 
-const p1Cache = f => {
-  const store = new Map;
+//메모라이제이션은 외부 스코프를 쓰지 않는 (종속성 없는 함수이어야한다) 순수함수
+const p1Cache = f => { 
+  const store = new Map; //네이티브 객체
   console.log(store);
   return arg => store.has(arg) ? store.get(arg) : store.set(arg, f(arg)).get(arg);
 }
@@ -89,7 +90,10 @@ const RefCompFactory = p1Cache(tagName => {
 const RefComp = RefCompFactory('section');
 export const Ref = new Proxy(RefComp, {
   get: (target, property) => {
-    // target => Make 함수
     return RefCompFactory(property.toLowerCase())
   }
 });
+
+
+
+

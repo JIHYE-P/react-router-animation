@@ -98,13 +98,10 @@ const sleep = ms => new Promise(res => setTimeout(res, ms));
 const PageTransitionContext = createContext(); // Context API 생성
 const {Provider, Consumer: PageTransitionConsumer} = PageTransitionContext;
 export const PageTransitionProvider = ({...props}) => {
-  const [history, setHistory] = useState({});
-  const [memoryHistory, setMemoryHistory] = useState({});
+  const [state, setState] = useState({});
   return <Provider {...props} value={{
-    history,
-    setHistory,
-    memoryHistory,
-    setMemoryHistory
+    state, 
+    setState: obj => setState(Object.assign(state, obj))
   }} />
 }
 ```
@@ -112,11 +109,12 @@ export const PageTransitionProvider = ({...props}) => {
 ```jsx
 export const Link = ({to, children, className}) => {
   return <PageTransitionConsumer>
-    {({history, memoryHistory}) => {
+    {({state}) => {
       const gotoPage = (pathName) = async() => {
-        memoryHistory.push(pathName);
+        state.memoryHistory.push(pathName);
         await sleep(2000);
-        history.push(pathName);
+        state.history.push(pathName);
+        //전환 애니메이션 작동부분
       }
       return <a onClick={gotoPage(to)} className={className}>{children}</a>
     }}
@@ -141,8 +139,7 @@ const HistoryObserver = ({memoryHistory, children}) => {
   const context = useContext(PageTransitionContext); // Context.Provider value를 객체로 반환
   const history = useHistory();
   useEffect(() => {
-    context.setHistory = history; // BrowerRouter history
-    context.setMemoryHistory = memoryHistory 
+    context.setState({history, memoryHistory});
   }, []);
   return <>{children}</>
 }
@@ -151,6 +148,79 @@ const HistoryObserver = ({memoryHistory, children}) => {
 링크를 연결해 줄 페이지 컴포넌트에서 `<Link to="post">Go to Post Page</Link>`를 사용하면 
 메모리 라우터 `Post` 페이지가 렌더링 된 후 2초 뒤에 (sleep 함수) 브라우저 라우터 `history.push()`가 작동하면서
 주소가 해당 링크로 이동되어 브라우저 라우터 `Post` 페이지가 렌더링된다.
+
+### `3. components Ref 얻어오기`
+애니메이션을 주기 위해선 대상자의 `element(Ref)`를 알아야 애니메이션 `css`등 을 적용 할 수 있다. 대상자를 감싸는 wrapper jsx`<div>` 컴포넌트를 만들어서 `ref`를 얻을 수 있는 방법이 있다.
+```jsx
+const Ref = ({main, children}) => {
+  const comp = useRef();
+  useEffect(() => {
+    console.log(main);
+    comp.current // 애니메이션 대상자 wrapper Ref
+  }, []);
+  return <div ref={comp}>{children}</div>
+}
+const Main = () => {
+  return <Ref name="main">
+    <div>Main</div>
+  </Ref>
+}
+```
+이렇게 `Ref` 컴포넌트를 만들어서 애니메이션 대상자 ref를 얻을 수가 있다. 하지만 좀 더 좋은 방법이 있는지 생각해보면 `styled-components`의 사용방법을 보면 
+```jsx
+const btnStyled = styled.button`color: red;`
+```
+위 코드 처럼 `.button`으로 `button` 엘리먼트를 반환해주고, 다른 html태그를 사용해도 사용한 태그를 반환해준다. `Ref` 컴포넌트는 `div`태그로만 사용할 수 밖에 없고, 안에 자식컴포넌트나 jsx를 사용할 때 `<Ref>` 보단 사용한 태그 이름의 컴포넌트로 보여주는 것이 좋다. 
+`section` 태그로 감쌀 땐 `<Section>`, `main`태그는 `<Main>`으로 등등 ..
+
+javascript [new Proxy()](https://developer.mozilla.org/ko/docs/Web/JavaScript/Reference/Global_Objects/Proxy)
+를 사용하여, 대상 객체의 `key`를 태그이름으로 사용하여 `jsx`가 아닌 `React.createElement()`를 반환하여 `jsx`를 그려준다.
+
+[React.createElement() 내용참고](https://medium.com/react-native-seoul/react-%EB%A6%AC%EC%95%A1%ED%8A%B8%EB%A5%BC-%EC%B2%98%EC%9D%8C%EB%B6%80%ED%84%B0-%EB%B0%B0%EC%9B%8C%EB%B3%B4%EC%9E%90-02-react-createelement%EC%99%80-react-component-%EA%B7%B8%EB%A6%AC%EA%B3%A0-reactdom-render%EC%9D%98-%EB%8F%99%EC%9E%91-%EC%9B%90%EB%A6%AC-41bf8c6d3764)
+```
+각 JSX 엘리먼트는 단지 React.createElement()를 호출하는 편리한 문법에 불과하다.
+즉, JSX 문법은 React.createElement() 를 호출하기 위한 하나의 방법일 뿐이고 Babel(Javascript 트랜스파일러)을 통해 파싱되고 트랜스 파일링된다.
+```
+
+먼저 `React.createElement()` 를 반환하는 함수를 만든다.
+```js
+const RefCompFactory = tagName => {
+  return ({name, children, ...props}) => {
+    const el = useRef();
+    return React.createElement(tagName, {ref: el.current, ...props}, children)
+  }
+}
+```
+
+`RefCompFactory(section)`를 호출하면 `section` jsx를 그려주는 `React.createElement` 함수가 반환된다.
+```js
+// 반환 함수
+({name, children, ...props}) => {
+  const el = useRef();
+  return React.createElement(tagName, {ref: el.current, ...props}, children)
+}
+```
+
+함수도 객체이므로 `Proxy` target으로 `property` 값이 설정 될 때 `RefCompFactory` 함수를 반환하여 `jsx` 엘리먼트가 생성된다.
+
+```js
+const RefComp = RefCompFactory(section);
+const Ref = new Proxy(RefComp, {
+  get: (target, property) => RefCompFactory(property)
+});
+```
+
+```
+<Ref.div />, <Ref.span /> 등 
+Proxy의 property가 RefCompFactory 함수 인수값으로 들어가서 React.createElement 함수가 실행되어 jsx가 그려진다.
+```
+좀 더 나아가서 컴포넌트마다 `<Ref.div>`을 여러번 사용하면 `React.createElement`을 반환하는 함수가 다 다른 메모리에 저장되서 사용되기 때문에
+자바스크립트의 메모라이제이션 Memorization (로컬 캐시) 기술을 통해 메모리에 특정 정보를 저장 기록하여 필요할 때마다 정보를 가져와 활용하는 방법으로 많은 메모리는 낭비하지 않고 필요한 부분만 사용하여 성능적인 부분을 개선할 수 있다.
+
+
+
+
+
 
 
 
