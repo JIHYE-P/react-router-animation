@@ -6,6 +6,24 @@ import Pages from './Pages';
 import {VirtualRouterProvider} from './utils/VirtualRouterContext';
 import {HistoryObserver} from './utils/VirtualRouter';
 
+//애니메이션이 작동할 함수를 등록하고 그 함수는 Link에서 호출한다
+//애니메이션 함수에는 대상자 (name으로 구분)와 현재위치 다음위치을 인자값으로 받아서 대상자마다 애니메이션의 구현을 다 다르게 할수 있다.
+const fixed = (() => {
+  const el = Object.assign(document.createElement('div'), {style: `position: fixed; top:0; left:0; width:100%; height:100%; z-index:10; display: none`});
+  document.body.prepend(el);
+  return {
+    show: () => el.style.display = 'block',
+    hide: () => el.style.display = 'none',
+    append: (child) => el.appendChild(child),
+    remove: (child) => el.removeChild(child),
+    async trans(f){
+      this.show();
+      await f();
+      this.hide();
+    }
+  }
+})();
+
 const VHistoryWrapper = ({children}) => {
   return <BrowserRouter>
     <HistoryObserver vHistory={useHistory()}>
@@ -13,12 +31,18 @@ const VHistoryWrapper = ({children}) => {
     </HistoryObserver>
   </BrowserRouter>
 }
+const Hidden = ({children}) => {
+  return <div style={{
+    width: 0,
+    height: 0,
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    zIndex: -1,
+    overflow: 'hidden'
+  }}>{children}</div>
+}
 
-/**
- * 렌더링은 자식 컴포넌트 먼저 그려지기 때문에, 부모 라우터 history를 알지 못한다.
- * 처음 렌더링 할 때 loading 상태값을 생성하여 부모 컴포넌트 먼저 그려주고 시간 차를 두고 
- * 자식 컴포넌트를 그려주면 부모의 Router (가장 가까이 있는) history를 넘겨받을 수 있다.
- */
 function App() {
   const [isRender, setIsRender] = useState(false);
   useEffect(() => {
@@ -29,7 +53,7 @@ function App() {
       <VHistoryWrapper>
         {isRender && <Pages />}  
       </VHistoryWrapper>
-      {isRender && <Pages />}
+      {isRender && <Hidden><Pages /></Hidden>}
     </MemoryRouter>
   </VirtualRouterProvider>
 }

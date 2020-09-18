@@ -220,7 +220,7 @@ Proxy의 property가 RefCompFactory 함수 인수값으로 들어가서 React.cr
 [메모라이제이션에 대해서](https://webisfree.com/2018-05-15/%EC%9E%90%EB%B0%94%EC%8A%A4%ED%81%AC%EB%A6%BD%ED%8A%B8-%EB%A9%94%EB%AA%A8%EB%9D%BC%EC%9D%B4%EC%A0%9C%EC%9D%B4%EC%85%98(memorization)-%EC%98%88%EC%A0%9C%EB%B3%B4%EA%B8%B0)
 
 ```jsx
-// 메모라이제이션
+// 메모라이제이션 외부 스코프를 쓰지 않는(종속성 없는 함수) 순수함수이여야한다.
 const pCached = f => {
   const store = new Map;
   return arg => store.has(arg) ? store.get(arg) : store.set(arg, f(arg)).get(arg);

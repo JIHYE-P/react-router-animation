@@ -46,21 +46,25 @@ export const HistoryObserver = ({vHistory, children}) => {
   return <>{children}</>
 }
 
+let lock = false;
 export const Link = ({to, children, className}) => {
   return <VirtualRouterConsumer>
     {({vHistory, history}) => {
       const gotoHandler = (pathName) => async(ev) => {
+        if(lock) return;
+        lock = true;
         vHistory.push(pathName);
         await sleep(2000);
+        // 애니메이션 함수 호출(타켓, 현재위치, 다음위치)
+        Animation()
         history.push(pathName);
-        //애니메이션 작동
+        lock = false;
       }
       return <a className={className} onClick={gotoHandler(to)}>{children}</a>
     }}
   </VirtualRouterConsumer>
 }
 
-//메모라이제이션은 외부 스코프를 쓰지 않는 (종속성 없는 함수이어야한다) 순수함수
 const p1Cache = f => { 
   const store = new Map; //네이티브 객체
   console.log(store);
