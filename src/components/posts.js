@@ -1,6 +1,6 @@
 import React from 'react';
 import styled from 'styled-components';
-import {Link} from '../utils/VirtualRouter';
+import {Link} from '../utils/virtualContext';
 
 const StyledPosts = styled.ul`
   li {
@@ -35,10 +35,10 @@ const StyledPosts = styled.ul`
   }
 `
 
-const Posts = ({posts}) => {
+const Posts = ({current, next, posts}) => {
   return <StyledPosts>
     {posts.map((movie, i) => <li key={`movie-${i}`}>
-      <Link to={`/post/${movie.id}`}>
+      <Link to={`/post/${movie.id}`} current={current} next={next}>
         <div className="inner">
           <div className="thumbnail" style={{background: `url(${movie.background_image}) no-repeat center / cover`}}></div>
           <h3 className="title"><span>[{movie.year}]</span> {movie.title}</h3>

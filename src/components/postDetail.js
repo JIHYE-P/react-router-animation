@@ -1,6 +1,6 @@
 import React from 'react';
 import styled from 'styled-components';
-import {Link} from '../utils/VirtualRouter';
+import {Link} from '../utils/virtualContext';
 
 const StyledDetail = styled.div`
   text-align: center;
@@ -50,10 +50,9 @@ const StyledDetail = styled.div`
   }
 `;
 
-const PostDetail = ({detail}) => {
+const PostDetail = ({current, next, detail}) => {
   return <StyledDetail>
-    <Link className="goBack" to="/">✖</Link>
-    {/* style={{background: `url(${detail.background_image}) no-repeat center / cover`}} */}
+    <Link to="/" current={current} next={next}>✖</Link>
     <div className="thumbnail">
       <img src={detail.background_image} alt={detail.title} />
       <h3><span>[{detail.year}]</span> {detail.title}</h3>
@@ -62,7 +61,6 @@ const PostDetail = ({detail}) => {
       <div>{detail.description_full}</div>
       <div>{detail.description_full}</div>
       <div>{detail.description_full}</div>
-      {/* <img src={detail.large_cover_image} alt="" /> */}
     </div>
   </StyledDetail>
 }

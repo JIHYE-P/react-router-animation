@@ -2,11 +2,11 @@ import React from 'react';
 import {Route} from 'react-router-dom';
 
 import Main from './pages/main';
-import Detail from './pages/detail';
+import Post from './pages/post';
 
 const Pages = () => <>
   <Route exact path='/' render={_=><Main />} />
-  <Route path='/post/:id' render={_=><Detail />} />
+  <Route path='/post' render={_=><Post />} />
 </>
 
 export default Pages
