@@ -363,8 +363,7 @@ const fixed = (() => {
 ```
 ```jsx
 const Link = ({to, current, next, children, className}) => {
-  return <PageTransitionConsumer>
-    {({state, refs}) => {
+  return <PageTransitionConsumer>{({state, refs}) => {
       const gotoPage = () = async() => {
         gotoTransitionPage({to, current, next, state, refs});
       }
@@ -379,7 +378,7 @@ const gotoTransitionPage = ({to, current, next, state, refs}) => {
   
   const currentPage = refs[`browser.${current}`];
   const nextPage = refs[`memory.${next}`];
-  
+
   fixed.append(nextPage);
   tween({ duration: 1000 }).start((v) => {
     styler(currentPage).set("opacity", 1 - v);
@@ -392,8 +391,29 @@ const gotoTransitionPage = ({to, current, next, state, refs}) => {
   history.push(to);
 }
 ```
+여기서 주의할 점은 `Ref` 컴포넌트의 해당 `ref` 값을 생명주기 `useEffect`내에서 `context` 상태값에 저장하고 있다. `useEffect`는 `jsx`가 렌더링이 끝난 후 수행된다.  
+`memoryHistory.push(to)`링크 이동 후 이동 된 페이지의 `Ref`컴포넌트의 `ref`엘리먼트 값이 `context.refs`에 렌더링이 끝난 후 저장되기 때문에 처음에 콘솔로 `refs`를 찍어보면 `undefined`로 저장된다.  
+비동기 `sleep` 함수를 이용하여 `push()`후 `useEffect()`가 먼저 수행하고 나서 `context.refs`에서 해당 `ref` 엘리먼트을 얻어 올 수 있다.
 
+또 하나의 문제점은 main -> post / post -> main으로 페이지 이동 될 때 아래와 같은 에러가 발생한다.  
+그 이유는 React가 렌더링 한 DOM 노드가 (다른 라이브러리)에 의해 제거되면 React는 변경 사항을 알 수 없으므로 React가 생성한 DOM 부분을 조작하지 않아야 한다.    
+예를 들어 제거한 DOM 노드를 React 컴포넌트가 다시 렌더링할 때 에러가 발행 할 수 있다.
+```Uncaught DOMException: Failed to execute 'removeChild' on 'Node': The node to be removed is not a child of this node. [react-dom.development.js:7601]```
+[내용 참고](https://stackoverrun.com/ko/q/12098469)
 
+현재 React `Ref` 컴포넌트로 DOM을 렌더링하여 해당 `ref`엘리먼트를 받아 `fixed`자바스크립트 네이티브 함수를 통해 강제로 다른 엘리먼트에 `append, remove`를 하고 있다.  
+`ref`엘리먼트가 있던 root자리에 없어서 다시 렌더링 될 때 에러가 발생하는 것이다.
+이 에러를 해결하기 위해 `Ref`를 사용하여 렌더링하고 있는 컴포넌트를 jsx `<div>`로 한번 더 감싸주면 해결된다.
+
+```jsx
+const PageRoute = ({component, ...props}) => {
+  return <Route {...props} render={() => <div>{component}</div>} />
+}
+const Pages = () => <>
+  <PageRoute exact path='/main' component={<Main />} />
+  <PageRoute exact path='/post' component={<Post />} />
+</>
+```
 
 
 
