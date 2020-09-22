@@ -41,7 +41,7 @@ const Main = () => {
   // }, []);
 
   return <Ref.section name='main'>
-    <Link to='/post' current='main' next='post'>goto post</Link>
+    <Link to='/post'>goto post</Link>
     {/* <StyledBall ref={ball}>
       <div></div>
       <div></div>

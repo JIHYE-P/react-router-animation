@@ -19,9 +19,10 @@ const Post = () => {
   
   return <Ref.section name='post'>
     <Ref.img src="https://picsum.photos/300/200" preload={true} />
-    <Ref.img src="https://picsum.photos/300/200?1" />
     <br/>
-    <Link to='/' current='post' next='main'>goto main</Link>
+    <Link to='/'>goto main</Link>
+    <br/>
+    <Ref.img src="https://picsum.photos/300/200?1" preload={true} />
     {/* <PostDetail detail={movieDetail} current='post' next='main' /> */}
   </Ref.section>
 }

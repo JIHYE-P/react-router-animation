@@ -13,18 +13,16 @@ const p1Cache = f => {
 
 const RefCompFactory = p1Cache(tagName => {
   const Make = ({name, children, preload, ...props}) => {
-    //2. 이미지, 비디오 엘리먼트가 있는지 확인 후 loading이 필요한 엘리먼트를 모아둔 Set 객체를 미리 준비하기 (context)
-    const {state, setRefs} = useContext(TransitionContext);
+    const {state, setRefs, setImages} = useContext(TransitionContext);
     const el = useRef(null);
     const history = useHistory();
     useEffect(() => {
       if(!el) return;
       if(history === state.history){
-        setRefs({[`browser.${name}`]: el.current});
+        name && setRefs({[`browser.${name}`]: el.current});
       }else if(history === state.vHistory){
-        setRefs({[`memory.${name}`]: el.current});
-        //3. preload가 true인것만 Set에 추가
-        // new Set => [...set] 배열 풀어써야만 데이터를 사용할 수 있다.
+        name && setRefs({[`memory.${name}`]: el.current});
+        if(preload) setImages(el.current)
       }
     }, [el]);
     return React.createElement(tagName, {ref: el, ...props}, children);
@@ -52,7 +50,9 @@ export const Hidden = ({children}) => {
 }
 
 const fixed = (() => {
-  const el = Object.assign(document.createElement('div'), {style: `position:fixed; top:0; left:0; width:100%; height:100%; z-index:10; display:none`});
+  const el = Object.assign(document.createElement('div'), {
+    style: `position:fixed; top:0; left:0; width:100%; height:100%; z-index:10; display:none `
+  });
   document.body.prepend(el);
   return {
     el,
@@ -68,35 +68,22 @@ const fixed = (() => {
   }
 })();
 
-const refLoaderComplete = async(wrapper) => {
-  if(!wrapper) return;
-  const imgs = Array.from(wrapper.childNodes).map(img => img);
-  return imgs.map(img => new Promise((resolve) => {
-    img.onload = () => resolve(true);
-    img.onerror = err => resolve(err);
-  }));
-}
-
-export const gotoTransitionPage = async({
-  to,
-  current,
-  next,
-  refs,
-  state
-  // 로딩이 필요한 엘리먼트 Set
-}) => {
-  const {vHistory, history} = state;
+export const gotoTransitionPage = async({ to, refs, state }) => {
+  const {history} = state;
+  const {location: {pathname}} = history;
   const duration = {duration: 1000}
-  vHistory.push(to);
-  await sleep(0);
-  const nextPage = refs[`memory.${next}`];
-  const currentPage = refs[`browser.${current}`];
-  fixed.append(nextPage);
 
-  // gotoTransitionPage 스코스 내에서만 할 수 있는 방법
-  // 1. context refs object에서 Object.values(refs) => 이미지, 비디오가 있는지 확인 가능
-  // const imgLoader = await refLoaderComplete(refs[`memory.images`])
-  // await Promise.all(imgLoader);
+  let nextPage;
+  let currentPage;
+  if(pathname === '/'){
+    nextPage = refs[`memory.post`];
+    currentPage = refs[`browser.main`];
+  }
+  if(pathname === '/post'){
+    nextPage = refs[`memory.main`];
+    currentPage = refs[`browser.post`];
+  }
+  fixed.append(nextPage);
   tween(duration).start(v => {
     styler(currentPage).set('opacity', 1-v);
     styler(nextPage).set('opacity', v)
@@ -107,3 +94,6 @@ export const gotoTransitionPage = async({
   fixed.hide();
   history.push(to);
 }
+
+// 포스트 그리드형태에서 클릭한 포스트 하나의 wrapper ref(엘리먼트)를 가져오는 기능의 함수 만들기
+// 클릭했을 때 refs에 저장되어 있는데 wrapper 여야함
