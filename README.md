@@ -85,6 +85,8 @@ const App = () => {
 이렇게 전환 라우터와 현재 라우터가 같은 페이지에 위치 할 수 있도록 설계를 하였다.
 `http://localhost:3000/main` 으로 접속하면, 브라우저 라우터는 `Main`페이지, 메모리 라우터는 `Post`페이지를 렌더링 하고있다.
 
+-----
+
 ### `2. Context API (createContext)` 
 페이지 이동 링크를 걸기 위해 `react-router-dom`의 `<Link />` 컴포넌트를 사용해야 하지만,
 `Link` 사용 시 링크 페이지로 바로 넘어가기 때문에 애니메이션이 끊기고, 애니메이션이 들어갈 페이지의 컴포넌트에 브라우저 라우터 히스토리와, 메모리 라우터 히스토리를 `props`로 받아 핸들링 해야하는데, 페이지 컴포넌트가 많아질 수 록 반복적인 코드 작성을 해야한다. 
@@ -99,9 +101,12 @@ const PageTransitionContext = createContext(); // Context API 생성
 const {Provider, Consumer: PageTransitionConsumer} = PageTransitionContext;
 export const PageTransitionProvider = ({...props}) => {
   const [state, setState] = useState({});
+  const [refs, setRefs] = useState({}); // 라우터 컴포넌트 ref (엘리먼트) 상태관리
   return <Provider {...props} value={{
     state, 
-    setState: obj => setState(Object.assign(state, obj))
+    setState: obj => setState(Object.assign(state, obj)),
+    refs, 
+    setRefs: obj => setRefs(Object.assign(refs, obj))
   }} />
 }
 ```
@@ -110,13 +115,12 @@ export const PageTransitionProvider = ({...props}) => {
 export const Link = ({to, children, className}) => {
   return <PageTransitionConsumer>
     {({state}) => {
-      const gotoPage = (pathName) = async() => {
-        state.memoryHistory.push(pathName);
+      const gotoPage = () = async() => {
+        state.memoryHistory.push(to);
         await sleep(2000);
-        state.history.push(pathName);
-        //전환 애니메이션 작동부분
+        state.history.push(to);
       }
-      return <a onClick={gotoPage(to)} className={className}>{children}</a>
+      return <a onClick={gotoPage()} className={className}>{children}</a>
     }}
   </PageTransitionConsumer>
 }
@@ -148,6 +152,8 @@ const HistoryObserver = ({memoryHistory, children}) => {
 링크를 연결해 줄 페이지 컴포넌트에서 `<Link to="post">Go to Post Page</Link>`를 사용하면 
 메모리 라우터 `Post` 페이지가 렌더링 된 후 2초 뒤에 (sleep 함수) 브라우저 라우터 `history.push()`가 작동하면서
 주소가 해당 링크로 이동되어 브라우저 라우터 `Post` 페이지가 렌더링된다.
+
+-----
 
 ### `3. components Ref 얻어오기`
 애니메이션을 주기 위해선 대상자의 `element(Ref)`를 알아야 애니메이션 `css`등 을 적용 할 수 있다. 대상자를 감싸는 wrapper jsx`<div>` 컴포넌트를 만들어서 `ref`를 얻을 수 있는 방법이 있다.
@@ -243,15 +249,16 @@ const RefCompFactory = pCached(tagName => {
 const RefCompFactory = pCached(tagName => {
   return ({name, children, ...props}) => {
     const history = useHistory();
-    const {state, setState} = useContext(PageTransitionContext);
+    const {state, refs, setRefs} = useContext(PageTransitionContext);
     const el = useRef();
     useEffect(() => {
       if(!el) return;
       if(state.history === history){
-        setState({ [`browser.${name}.ref`]: el.current });
+        setRefs({ [`browser.${name}.ref`]: el.current });
       }else if(state.memoryHistory === history){
-        setState({ [`memory.${name}.ref`]: el.current });
+        setRefs({ [`memory.${name}.ref`]: el.current });
       }
+      console.log(refs)
     }, [el]); 
     return React.createElement(tagName, {ref: el, ...props}, children)
   }
@@ -286,6 +293,109 @@ const App = () => {
   </MemoryRouter>
 }
 ```
+-----
+
+### 4. transition
+브라우저 라우터와 메모리 라우터의 `component ref`를 각각 저장했다.
+메모리 라우터는 보여질 필요가 없으니 숨김 처리하고, 메모리 라우터에서 전환 될 컴포넌트 ref 엘리먼트를 `body`에 추가하여 현재 페이지와, 다음 페이지에 트렌지션 애니메이션을 동시에 준다.
+
+먼저 메모리 라우터를 숨김처리 하기 위해 `Hidden` 컴포넌트를 만들어서 메모리 라우터를 감싼다.
+```js
+const Hidden = ({children}) => {
+  return <div style={{
+    width: 0;
+    height: 0;
+    position: 'absoulte';
+    top: 0;
+    left: 0;
+    zIndex: -1;
+    overflow: 'hidden'
+  }}>{children}</div>
+}
+
+const App = () => {
+  ...
+  return <MemoryRouter>
+    <BrowserRouterComp>
+      {isRender && <Pages />}
+    </BrowserRouterComp>
+    {isRender && <Hidden><Pages /></Hidden>}
+  </MemoryRouter>
+}
+```
+
+그 다음, 다음 페이지의 `component ref` (메모리 라우터에 있는)을 가져와서 링크가 넘어가기 전 현재 페이지와 겹치면서 애니메이션이 동시에 작동 할 수 있도록, `body`에 고정된 엘리먼트 `wrapper`을 만들어 자식으로 `append`하고, 에니메이션이 끝나면 `remove` 되는 컴포넌트를 만든다.
+```js
+//즉시 함수호출
+const fixed = (() => {
+  const el = Object.assign(document.createElement('div'), {
+    style: `
+      position: fixed;
+      left: 0;
+      top: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 10;
+      display: none;
+    `
+  })
+  document.body.prepend(el);
+  return {
+    show: () => el.style.display = 'block',
+    hide: () => el.style.display = 'none',
+    append: (child) => el.appendChild(child),
+    remove: (child) => el.removeChild(child),
+  }
+})(); 
+```
+
+현재 페이지와, 다음 페이지의 `ref`를 메모리 라우터에서 얻어와 `fixed` 함수를 사용하여 트렌지션 애니메이션이
+`링크 클릭 시` 작동해야하므로 `Link` 컴포넌트에서 `onClick` 함수에 애니메이션 로직을 추가해야한다.  
+애니메이션 효과가 여러가지 일 수도 있고, 애니메이션이 걸리는 대상자 ref 엘리먼트도 다 다를 수 있기 때문에 `onCick` 함수에 풀어쓰는것 보단 애니메이션이 작동할 때 필요한 데이터를 매개변수로 받는 (ex pathName, 현재 위치 ref, 다음 위치 ref 등등) 함수를 만들어서 호출하는 것이 편리하다. 또한, `Link` 컴포넌트가 `context`의 상태값을 공유 받아 처리하고 있다.
+
+현재 `Main` 컴포넌트와 `Post` 컴포넌트의 ref를 얻어올 수 있으니 두 페이지가 서로 전환 될 때 페이드 애니메이션을 적용해본다.  
+`gotoPage` 에서 인자(매개변수)로 `1. 다음 페이지 ref key, 2. 현재 페이지 ref key, 3. 다음 페이지 링크 to`가 필요하다. 
+
+```jsx
+// Page 내에서 Link 컴포넌트
+<Link to="/post" current='main' next='post'>goto Post page</Link>
+<Link to="/main" current='post' next='main'>goto Main page</Link>
+```
+```jsx
+const Link = ({to, current, next, children, className}) => {
+  return <PageTransitionConsumer>
+    {({state, refs}) => {
+      const gotoPage = () = async() => {
+        gotoTransitionPage({to, current, next, state, refs});
+      }
+      return <a onClick={gotoPage()} className={className}>{children}</a>
+    }}
+  </PageTransitionConsumer>
+}
+const gotoTransitionPage = ({to, current, next, state, refs}) => {
+  const {history, memoryHistory} = state;
+  memoryHistory.push(to);
+  await sleep(0);
+  
+  const currentPage = refs[`browser.${current}`];
+  const nextPage = refs[`memory.${next}`];
+  
+  fixed.append(nextPage);
+  tween({ duration: 1000 }).start((v) => {
+    styler(currentPage).set("opacity", 1 - v);
+    styler(nextPage).set("opacity", v);
+  });
+  fixed.show();
+  await sleep(1000);
+  fixed.remove(nextPage);
+  fixed.hide();
+  history.push(to);
+}
+```
+
+
+
+
 
 
 

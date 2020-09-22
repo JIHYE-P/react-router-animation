@@ -18,8 +18,8 @@ const Post = () => {
   // }, []);
   
   return <Ref.section name='post'>
-    <Ref.img src="https://picsum.photos/300/200" alt="" preload={true} />
-    <Ref.img src="https://picsum.photos/300/200?1" alt="" />
+    <Ref.img src="https://picsum.photos/300/200" preload={true} />
+    <Ref.img src="https://picsum.photos/300/200?1" />
     <br/>
     <Link to='/' current='post' next='main'>goto main</Link>
     {/* <PostDetail detail={movieDetail} current='post' next='main' /> */}
