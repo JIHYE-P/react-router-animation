@@ -4,7 +4,7 @@ import Layout from '../components/layout';
 import Posts from '../components/posts';
 import {getMoviesList} from '../utils'
 import {Ref} from '../utils/contextComp';
-import {Link} from '../utils/virtualContext';
+import Link from '../utils/link';
 import {styler, everyFrame, value, listen} from 'popmotion'
 
 const StyledBall = styled.div`

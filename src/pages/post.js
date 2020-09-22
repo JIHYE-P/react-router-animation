@@ -4,7 +4,7 @@ import Layout from '../components/layout';
 import PostDetail from '../components/postDetail';
 import {getMoviesDetail} from '../utils'
 import {Ref} from '../utils/contextComp';
-import {Link} from '../utils/virtualContext';
+import Link from '../utils/link';
 
 const Post = () => {
   // const {pathname} = useLocation();

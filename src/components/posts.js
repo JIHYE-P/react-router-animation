@@ -1,6 +1,7 @@
 import React from 'react';
 import styled from 'styled-components';
-import {Link} from '../utils/virtualContext';
+import {Ref} from '../utils/contextComp';
+import Link from '../utils/link';
 
 const StyledPosts = styled.ul`
   li {

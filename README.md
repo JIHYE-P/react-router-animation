@@ -362,10 +362,15 @@ const fixed = (() => {
 <Link to="/main" current='post' next='main'>goto Main page</Link>
 ```
 ```jsx
+let lock = false;
+// 전역변수 lock 은 `Link`의 onClick 함수가 짧은 시간동안 반복적으로 여러번 클릭 시에도 함수가 한 번 실행되도록 블로킹 처리를 해준다.
 const Link = ({to, current, next, children, className}) => {
   return <PageTransitionConsumer>{({state, refs}) => {
       const gotoPage = () = async() => {
+        if(lock) return;
+        lock = true;
         gotoTransitionPage({to, current, next, state, refs});
+        lock = false;
       }
       return <a onClick={gotoPage()} className={className}>{children}</a>
     }}
@@ -397,12 +402,12 @@ const gotoTransitionPage = ({to, current, next, state, refs}) => {
 
 또 하나의 문제점은 main -> post / post -> main으로 페이지 이동 될 때 아래와 같은 에러가 발생한다.  
 그 이유는 React가 렌더링 한 DOM 노드가 (다른 라이브러리)에 의해 제거되면 React는 변경 사항을 알 수 없으므로 React가 생성한 DOM 부분을 조작하지 않아야 한다.    
-예를 들어 제거한 DOM 노드를 React 컴포넌트가 다시 렌더링할 때 에러가 발행 할 수 있다.
+예를 들어 제거한 DOM 노드를 React 컴포넌트가 다시 렌더링할 때 에러가 발행 할 수 있다.   
 ```Uncaught DOMException: Failed to execute 'removeChild' on 'Node': The node to be removed is not a child of this node. [react-dom.development.js:7601]```
 [내용 참고](https://stackoverrun.com/ko/q/12098469)
 
-현재 React `Ref` 컴포넌트로 DOM을 렌더링하여 해당 `ref`엘리먼트를 받아 `fixed`자바스크립트 네이티브 함수를 통해 강제로 다른 엘리먼트에 `append, remove`를 하고 있다.  
-`ref`엘리먼트가 있던 root자리에 없어서 다시 렌더링 될 때 에러가 발생하는 것이다.
+현재 React `Ref` 컴포넌트로 DOM을 렌더링하여 해당 `ref`엘리먼트를 받아 `fixed`자바스크립트 네이티브 함수를 통해 강제로 다른 엘리먼트에 `appendChild, removeChild`를 하고 있다.  
+`ref`엘리먼트가 있던 `root자리`에 없어서 다시 렌더링 될 때 에러가 발생하는 것이다.
 이 에러를 해결하기 위해 `Ref`를 사용하여 렌더링하고 있는 컴포넌트를 jsx `<div>`로 한번 더 감싸주면 해결된다.
 
 ```jsx
@@ -414,6 +419,22 @@ const Pages = () => <>
   <PageRoute exact path='/post' component={<Post />} />
 </>
 ```
+
+### `5. image, video loading`
+렌더링 될 때 로딩 시간이 걸리는 이미지, 비디오 등 엘리먼트가 다음 페이지 내애 있다고 가정하면 페이지가 전환될 때 페이드 애니메이션은 작동 하겠지만 애니메이션과 별개로 이미지나 비디오는 로딩이 끝난 후 렌더링 되기 때문에 뚝 끊기는 현상이 나타날 것이다.
+
+이러한 현상을 보완하기 위해 이미지와 비디오 등 로딩이 필요한 엘리먼트가 로딩이 되었을 때 다음 페이지로 전환해주면 이미 로딩이 끝났기 때문에 렌더링만 해주면 로딩시간을 필요가 없어 뚝 끊기는 현상이 없어진다.   
+
+여러가지 방법이 있다.
+1. `gotoTransitionPage` 함수 스코프 내에서 할 수 있는 방법
+이미지와 비디오를 `Ref` 컴포넌트로 엘리먼트를 만들서 `context.refs`에서 다음 페이지에 있는 이미지와 비디오 엘리먼트를 얻어와 로딩이 다 되었을 때 애니메이션이 수행되는 방법   
+
+2. `Link` onClick 함수 스코프 내에서 할 수 있는 방법   
+1번 방법으로 하게되면 `<Ref.img>` 사용 시 `props name` 값을 필수로 지정해 줘야하고,
+이미지가 한개 이상 일 때, 다른 트리 구조에 있는 이미지 일 때 `ref 엘리먼트`를 얻어오는데 어려움이 있다.   
+엘리먼트를 알 수 있고 만들어지는 `RefCompFactory` 컴포넌트에서 이미지/비디오 생성 되었는지 확인 후 로딩 확인이 필요한 엘리먼트들을 `Set` 객체에 저장하여 
+`Link`컴포넌트 `onClick` 함수 스코프내에서 `Set`객체에 있는 엘리먼트들의 로딩 완료를 먼저 확인 후 트렌지션 애니메이션 함수를 실행한다.
+
 
 
 

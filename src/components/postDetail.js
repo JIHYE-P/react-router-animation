@@ -1,6 +1,7 @@
 import React from 'react';
 import styled from 'styled-components';
-import {Link} from '../utils/virtualContext';
+import {Ref} from '../utils/contextComp';
+import Link from '../utils/link';
 
 const StyledDetail = styled.div`
   text-align: center;
@@ -52,7 +53,7 @@ const StyledDetail = styled.div`
 
 const PostDetail = ({current, next, detail}) => {
   return <StyledDetail>
-    <Link to="/" current={current} next={next}>✖</Link>
+    {/* <Link to="/" current={current} next={next}>✖</Link> */}
     <div className="thumbnail">
       <img src={detail.background_image} alt={detail.title} />
       <h3><span>[{detail.year}]</span> {detail.title}</h3>

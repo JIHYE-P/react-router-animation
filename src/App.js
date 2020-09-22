@@ -1,13 +1,13 @@
 import './App.css';
 import React, {useEffect, useState, useContext} from 'react';
 import {BrowserRouter, MemoryRouter, useHistory, Route} from 'react-router-dom';
-import {VirtualRouterProvider, VirtualRouterContext} from './utils/virtualContext';
+import {TransitionRouterProvider, TransitionContext} from './utils/transitionContext';
 import {Hidden} from './utils/contextComp';
 import Main from './pages/main';
 import Post from './pages/post';
 
 const HistoryObserver = ({vHistory, children}) => {
-  const {setState} = useContext(VirtualRouterContext);
+  const {setState} = useContext(TransitionContext);
   const history = useHistory(); 
   useEffect(() => {
     setState({history, vHistory});
@@ -37,14 +37,14 @@ function App() {
   useEffect(() => {
     setTimeout(() => setIsRender(true));
   }, []);
-  return <VirtualRouterProvider>
+  return <TransitionRouterProvider>
     <MemoryRouter>
       <VHistoryWrapper>
         {isRender && <Pages />}  
       </VHistoryWrapper>
       {isRender && <Hidden><Pages /></Hidden>}
     </MemoryRouter>
-  </VirtualRouterProvider>
+  </TransitionRouterProvider>
 }
 
 export default App;

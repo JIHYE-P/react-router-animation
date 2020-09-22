@@ -1,7 +1,8 @@
 import React, {useContext, useEffect, useRef} from 'react';
+import styled from 'styled-components';
 import {useHistory} from 'react-router-dom';
 import {sleep} from '.';
-import {VirtualRouterContext} from './virtualContext';
+import {TransitionContext} from './transitionContext';
 import {styler, tween} from 'popmotion';
 
 const p1Cache = f => { 
@@ -13,7 +14,7 @@ const p1Cache = f => {
 const RefCompFactory = p1Cache(tagName => {
   const Make = ({name, children, preload, ...props}) => {
     //2. 이미지, 비디오 엘리먼트가 있는지 확인 후 loading이 필요한 엘리먼트를 모아둔 Set 객체를 미리 준비하기 (context)
-    const {state, setRefs} = useContext(VirtualRouterContext);
+    const {state, setRefs} = useContext(TransitionContext);
     const el = useRef(null);
     const history = useHistory();
     useEffect(() => {
@@ -84,10 +85,8 @@ export const gotoTransitionPage = async({
   state
   // 로딩이 필요한 엘리먼트 Set
 }) => {
-  // browser, memory
   const {vHistory, history} = state;
   const duration = {duration: 1000}
-  // console.log(refs)
   vHistory.push(to);
   await sleep(0);
   const nextPage = refs[`memory.${next}`];
@@ -107,24 +106,4 @@ export const gotoTransitionPage = async({
   fixed.remove(nextPage);
   fixed.hide();
   history.push(to);
-  // 이미지랑 비디오 엘리먼트는 로딩이 끝난 후 트렌지션 애니메이션이 걸려야한다.
-  // Ref컴포넌트로 img ref를 가져와서 
-
-  // animejs 사용 할 때 
-  // fixed.append(nextPage);
-  // await anime({
-  //   targets: currentPage,
-  //   opacity: [1, 0],
-  //   duration: 1500
-  // });
-  // fixed.show();
-  // await anime({
-  //   targets: nextPage,
-  //   opacity: [0, 1],
-  //   duration: 1500
-  // });
-  // await sleep(500);
-  // fixed.remove(nextPage);
-  // fixed.hide();
-  // history.push(to);
 }
