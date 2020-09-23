@@ -470,12 +470,15 @@ const RefCompFactory = pCached(tagName => {
 });
 ```
 
-이제 로딩완료 확인이 필요한 이미지들이 `context Set`에 저장되어있다. 저장 되어있는 이미지 엘리먼트들의 로딩확인이 필요한 비동기 함수를 만든다.   
+이제 로딩완료 확인이 필요한 이미지들이 `context Set`에 저장되어있다. 저장 되어있는 이미지 엘리먼트들의 로딩 확인이 필요한 비동기 함수를 만든다.   
 ```js
 const checkImages = async(imgs) => {
-  return imgs.map(img => new Promise((res, rej) => {
-    img.onload = () => res(true) //이미지 로딩이 완료도면 프로미스 resolve에 값 전달
-    img.onerror = (err) => rej(err)  
+  return imgs.map(img => new Promise((resolve, reject) => {
+    img.onload = () => resolve(true)
+    img.onerror = (err) => reject(err)  
+    // 이미지 onload, onerror는 최초 한 번만 실행 되기 때문에, 이미 로딩이 끝난 이미지를 onload로 체크하지 못한다.
+    // 이미지 complete가 true이면 바로 완료처리를 해줘야한다.
+    img.complete && resolve(true)
   }))
 }
 ```
@@ -484,20 +487,43 @@ const checkImages = async(imgs) => {
 ```jsx
 const Link = ({to, children, className}) => {
   return <PageTransitionConsumer>{({state, refs, images}) => {
-      const gotoPage = () = async() => {
+      const gotoPage = async() => {
         if(lock) return;
         lock = true;
-        state.memoryHistory.push(to);
+        state.vHistory.push(to);
         await sleep(0);
-        const checked = await checkImages([...images]);
-        await Promise.all(checked);
-        gotoTransitionPage({to, state, refs});
+        await Promise.all(await checkImages([...images]));
+        await gotoTransitionPage({to, refs});
+        state.history.push(to);
         images.clear();
         lock = false;
       }
-      return <a onClick={gotoPage()} className={className}>{children}</a>
+      return <a onClick={gotoPage} className={className}>{children}</a>
     }}
   </PageTransitionConsumer>
+}
+
+const gotoTransitionPage = async({to, refs}) => {
+  const duration = {duration: 1000}
+  let nextPage = null;
+  let currentPage = null;
+  if(to === '/'){
+    nextPage = refs[`memory.main`];
+    currentPage = refs[`browser.post`];
+  }
+  if(to === '/post'){
+    nextPage = refs[`memory.post`];
+    currentPage = refs[`browser.main`];
+  }
+  fixed.append(nextPage);
+  tween(duration).start(v => {
+    styler(currentPage).set('opacity', 1-v);
+    styler(nextPage).set('opacity', v)
+  });
+  fixed.show();
+  await sleep(1000);
+  fixed.remove(nextPage);
+  fixed.hide();
 }
 ```
 

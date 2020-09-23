@@ -1,9 +1,38 @@
 import React, {useContext, useEffect, useRef} from 'react';
-import styled from 'styled-components';
 import {useHistory} from 'react-router-dom';
-import {sleep} from '.';
 import {TransitionContext} from './transitionContext';
 import {styler, tween} from 'popmotion';
+import {sleep} from '.';
+
+export const Hidden = ({children}) => {
+  return <div style={{
+    width: 0,
+    height: 0,
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    zIndex: -1,
+    overflow: 'hidden'
+  }}>{children}</div>
+}
+
+const fixed = (() => {
+  const el = Object.assign(document.createElement('div'), {
+    style: `position:fixed; top:0; left:0; width:100%; height:100%; z-index:10; display:none `
+  });
+  document.body.prepend(el);
+  return {
+    show: () => el.style.display = 'block',
+    hide: () => el.style.display = 'none',
+    append: (child) => el.appendChild(child),
+    remove: (child) => el.removeChild(child),
+    async trans(f){
+      this.show();
+      await f();
+      this.hide();
+    }
+  }
+})();
 
 const p1Cache = f => { 
   const store = new Map; //네이티브 객체
@@ -37,51 +66,17 @@ export const Ref = new Proxy(RefComp, {
   }
 });
 
-export const Hidden = ({children}) => {
-  return <div style={{
-    width: 0,
-    height: 0,
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    zIndex: -1,
-    overflow: 'hidden'
-  }}>{children}</div>
-}
-
-const fixed = (() => {
-  const el = Object.assign(document.createElement('div'), {
-    style: `position:fixed; top:0; left:0; width:100%; height:100%; z-index:10; display:none `
-  });
-  document.body.prepend(el);
-  return {
-    el,
-    show: () => el.style.display = 'block',
-    hide: () => el.style.display = 'none',
-    append: (child) => el.appendChild(child),
-    remove: (child) => el.removeChild(child),
-    async trans(f){
-      this.show();
-      await f();
-      this.hide();
-    }
-  }
-})();
-
-export const gotoTransitionPage = async({ to, refs, state }) => {
-  const {history} = state;
-  const {location: {pathname}} = history;
+export const gotoTransitionPage = async({to, refs}) => {
   const duration = {duration: 1000}
-
-  let nextPage;
-  let currentPage;
-  if(pathname === '/'){
-    nextPage = refs[`memory.post`];
-    currentPage = refs[`browser.main`];
-  }
-  if(pathname === '/post'){
+  let nextPage = null;
+  let currentPage = null;
+  if(to === '/'){
     nextPage = refs[`memory.main`];
     currentPage = refs[`browser.post`];
+  }
+  if(to === '/post'){
+    nextPage = refs[`memory.post`];
+    currentPage = refs[`browser.main`];
   }
   fixed.append(nextPage);
   tween(duration).start(v => {
@@ -92,7 +87,6 @@ export const gotoTransitionPage = async({ to, refs, state }) => {
   await sleep(1000);
   fixed.remove(nextPage);
   fixed.hide();
-  history.push(to);
 }
 
 // 포스트 그리드형태에서 클릭한 포스트 하나의 wrapper ref(엘리먼트)를 가져오는 기능의 함수 만들기
