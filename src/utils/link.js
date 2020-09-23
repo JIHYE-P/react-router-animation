@@ -12,7 +12,7 @@ const checkImages = async(imgs) => {
 };
 
 let lock = false;
-const Link = ({to, current, next, ...props}) => {
+const Link = ({to, ...props}) => {
   return <TransitionRouterConsumer>
     {({state, refs, images}) => {
       const gotoHandler = async(ev) => {
@@ -23,12 +23,7 @@ const Link = ({to, current, next, ...props}) => {
       
         const checked = await checkImages([...images]);
         await Promise.all(checked);
-        await gotoTransitionPage({
-          to,
-          refs,
-          state,
-          images
-        });
+        await gotoTransitionPage({to, refs, state, images});
         images.clear();
         lock = false;
       }

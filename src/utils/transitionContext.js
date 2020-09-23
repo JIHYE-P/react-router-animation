@@ -1,4 +1,3 @@
-import { set } from 'animejs';
 import React, {createContext, useState} from 'react';
 
 export const TransitionContext = createContext();

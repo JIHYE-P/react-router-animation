@@ -357,33 +357,34 @@ const fixed = (() => {
 `gotoPage` 에서 인자(매개변수)로 `1. 다음 페이지 ref key, 2. 현재 페이지 ref key, 3. 다음 페이지 링크 to`가 필요하다. 
 
 ```jsx
-// Page 내에서 Link 컴포넌트
-<Link to="/post" current='main' next='post'>goto Post page</Link>
-<Link to="/main" current='post' next='main'>goto Main page</Link>
-```
-```jsx
 let lock = false;
 // 전역변수 lock 은 `Link`의 onClick 함수가 짧은 시간동안 반복적으로 여러번 클릭 시에도 함수가 한 번 실행되도록 블로킹 처리를 해준다.
-const Link = ({to, current, next, children, className}) => {
+const Link = ({to, children, className}) => {
   return <PageTransitionConsumer>{({state, refs}) => {
       const gotoPage = () = async() => {
         if(lock) return;
         lock = true;
-        gotoTransitionPage({to, current, next, state, refs});
+        gotoTransitionPage({to, state, refs});
         lock = false;
       }
       return <a onClick={gotoPage()} className={className}>{children}</a>
     }}
   </PageTransitionConsumer>
 }
-const gotoTransitionPage = ({to, current, next, state, refs}) => {
+const gotoTransitionPage = ({to, state, refs}) => {
   const {history, memoryHistory} = state;
   memoryHistory.push(to);
   await sleep(0);
-  
-  const currentPage = refs[`browser.${current}`];
-  const nextPage = refs[`memory.${next}`];
-
+  let currentPage;
+  let nextPage;
+  if(pathname === '/'){
+    nextPage = refs[`memory.post`];
+    currentPage = refs[`browser.main`];
+  }
+  if(pathname === '/post'){
+    nextPage = refs[`memory.main`];
+    currentPage = refs[`browser.post`];
+  }
   fixed.append(nextPage);
   tween({ duration: 1000 }).start((v) => {
     styler(currentPage).set("opacity", 1 - v);
@@ -428,13 +429,116 @@ const Pages = () => <>
 
 여러가지 방법이 있다.  
 **`gotoTransitionPage` 함수 스코프 내에서 할 수 있는 방법**   
-이미지와 비디오를 `Ref` 컴포넌트로 엘리먼트를 만들서 `context.refs`에서 다음 페이지에 있는 이미지와 비디오 엘리먼트를 얻어와 로딩이 다 되었을 때 애니메이션이 수행되는 방법   
+이미지와 비디오를 `Ref` 컴포넌트로 엘리먼트를 만들어서 `context.refs`에서 다음 페이지에 있는 이미지와 비디오 엘리먼트를 얻어와 로딩이 다 되었을 때 애니메이션이 수행되는 방법   
 
-**`Link` onClick 함수 스코프 내에서 할 수 있는 방법**  
+**`Link onClick` 함수 스코프 내에서 할 수 있는 방법**  
 1번 방법으로 하게되면 `<Ref.img>` 사용 시 `props name` 값을 필수로 지정해 줘야하고,
 이미지가 한개 이상 일 때, 다른 트리 구조에 있는 이미지 일 때 `ref 엘리먼트`를 얻어오는데 어려움이 있다.   
-엘리먼트를 알 수 있고 만들어지는 `RefCompFactory` 컴포넌트에서 이미지/비디오 생성 되었는지 확인 후 로딩 확인이 필요한 엘리먼트들을 `Set` 객체에 저장하여 
-`Link`컴포넌트 `onClick` 함수 스코프내에서 `Set`객체에 있는 엘리먼트들의 로딩 완료를 먼저 확인 후 트렌지션 애니메이션 함수를 실행한다.
+엘리먼트를 알 수 있고 만들어지는 `RefCompFactory` 컴포넌트에서 이미지/비디오 엘리먼트가 생성되면 로딩 확인이 필요한 엘리먼트들을 `Set` 객체에 저장하여 
+`Link`컴포넌트 `onClick` 함수 스코프내에서 `Set`객체에 있는 엘리먼트들의 로딩 완료를 먼저 확인 후 트렌지션 애니메이션 함수를 실행한다.  
+
+먼저 로딩이 필요한 엘리먼트들의 집합 `Set`을 `context`에 생성해야 `Link`컴포넌트에서 상태를 공유받을 수 있다.
+```jsx
+const PageTransitionProvider = ({...props}) => {
+  const [state, setState] = useState({});
+  const [refs, setRefs] = useState({});
+  const [images, setImages] = useState(new Set);
+  return <Provider {...props} value={{
+    ...
+    images,
+    setImages: el => setImages(images.add(el));
+  }} />
+}
+```
+
+또, 로딩 완료 상태 확인이 필요한 이미지와 그렇지 않은 이미지가 있을 수도 있으니 구분하기 위해 `Ref` 컴포넌트에 프로퍼티`preload`를 추가하여 `Set`에 저장한다. 그리고 `name`이 적용되어있는 엘리먼트만 `refs`에 저장되도록 `if`문을 수정한다.
+```jsx
+const RefCompFactory = pCached(tagName => {
+  return ({name, preload, children, ...props}) => {
+    ...
+    useEffect(() => {
+      if(!el) return;
+      if(state.history === history){
+        name && setRefs({ [`browser.${name}.ref`]: el.current });
+      }else if(state.memoryHistory === history){
+        name && setRefs({ [`memory.${name}.ref`]: el.current });
+        if(preload && el.current.tagName === 'IMG') && setImages(el.current);
+      }
+    }, [el]); 
+    ...
+  }
+});
+```
+
+이제 로딩완료 확인이 필요한 이미지들이 `context Set`에 저장되어있다. 저장 되어있는 이미지 엘리먼트들의 로딩확인이 필요한 비동기 함수를 만든다.   
+```js
+const checkImages = async(imgs) => {
+  return imgs.map(img => new Promise((res, rej) => {
+    img.onload = () => res(true) //이미지 로딩이 완료도면 프로미스 resolve에 값 전달
+    img.onerror = (err) => rej(err)  
+  }))
+}
+```
+
+`Link` 컴포넌트에서 `context Set` 저장 되어있는 이미지들이 로딩이 끝난 후 트렌지션 애니메이션 함수가 수행되도록 로직 순서를 바꾼다. `gotoTransitionPage` 함수에서 `메모리라우터`의 있는 `ref`엘리먼트를 가져오기 위해 메모리라우터 링크가 이동되는 로직이 `checkImages` 함수보다 먼저 실행되어야 `Set`에 저장되어있는 데이터를 배열로 분해하여 사용할 수 있다.
+```jsx
+const Link = ({to, children, className}) => {
+  return <PageTransitionConsumer>{({state, refs, images}) => {
+      const gotoPage = () = async() => {
+        if(lock) return;
+        lock = true;
+        state.memoryHistory.push(to);
+        await sleep(0);
+        const checked = await checkImages([...images]);
+        await Promise.all(checked);
+        gotoTransitionPage({to, state, refs});
+        images.clear();
+        lock = false;
+      }
+      return <a onClick={gotoPage()} className={className}>{children}</a>
+    }}
+  </PageTransitionConsumer>
+}
+```
+
+-----
+
+### `참고. React rendering 리액트 렌더링 이해와 최적화 (함수형 컴포넌트)`
+[내용참고](https://medium.com/vingle-tech-blog/react-%EB%A0%8C%EB%8D%94%EB%A7%81-%EC%9D%B4%ED%95%B4%ED%95%98%EA%B8%B0-f255d6569849)   
+리액트에서 `jsx`(return 부분)을 렌더링을 실행하는 조건은
+1. **`props`**가 변경되었을 때
+2. **`state`**가 변경되었을 때
+3. **`부모 컴포넌트가`** 렌더링 되었을 때
+
+1~3번의 과정을 통해 컴포넌트가 렌더링 될 때 **자식 컴포넌트** 또한 같은 과정으로 렌더링이 된다.
+하지만 렌더링이 다시 되어 업데이트 될 변경사항이 없는데, 위 과정을 통해 다시 렌더링이 된다면 성능이 떨어지고, 컴포넌트 트리구조가 깊을 수록 
+더 많은 렌더링이 수행하므로 성능에 좋지 않다.   
+[예제참고](https://codesandbox.io/s/strange-currying-5lxrp?from-embed)   
+```부모 컴포넌트에서 자기자신 상태를 변경하였지만, 자식 컴포넌트(Title)가 다시 렌더링 되는 것을 콘솔을 통해 확인 할 수 있다.```   
+
+```jsx
+export default function App() {
+  const [value, setValue] = useState({ name: "jihye" });
+  console.log("render", value);
+  return (
+    <div className="App">
+      <h1>Hello CodeSandbox</h1>
+      <h2>{value.name} - Start editing to see some magic happen!</h2>
+      <input type="text" name="name" onChange={changeValue} />
+    </div>
+  );
+}
+```
+
+
+
+
+
+
+
+
+
+
 
 
 

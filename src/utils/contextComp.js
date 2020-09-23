@@ -22,7 +22,7 @@ const RefCompFactory = p1Cache(tagName => {
         name && setRefs({[`browser.${name}`]: el.current});
       }else if(history === state.vHistory){
         name && setRefs({[`memory.${name}`]: el.current});
-        if(preload) setImages(el.current)
+        if(preload && el.current.tagName==='IMG') setImages(el.current)
       }
     }, [el]);
     return React.createElement(tagName, {ref: el, ...props}, children);
