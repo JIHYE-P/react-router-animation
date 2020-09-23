@@ -1,7 +1,6 @@
 import React from 'react';
 import styled from 'styled-components';
-import {Ref} from '../utils/contextComp';
-import Link from '../utils/link';
+import {Link, Ref} from '../utils/transition';
 
 const StyledPosts = styled.ul`
   li {
@@ -36,10 +35,10 @@ const StyledPosts = styled.ul`
   }
 `
 
-const Posts = ({current, next, posts}) => {
+const Posts = ({posts}) => {
   return <StyledPosts>
     {posts.map((movie, i) => <li key={`movie-${i}`}>
-      <Link to={`/post/${movie.id}`} current={current} next={next}>
+      <Link to={`/post/${movie.id}`}>
         <div className="inner">
           <div className="thumbnail" style={{background: `url(${movie.background_image}) no-repeat center / cover`}}></div>
           <h3 className="title"><span>[{movie.year}]</span> {movie.title}</h3>

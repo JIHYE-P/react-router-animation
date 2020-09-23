@@ -1,19 +1,10 @@
 import './App.css';
-import React, {useEffect, useState, useContext} from 'react';
-import {BrowserRouter, MemoryRouter, useHistory, Route} from 'react-router-dom';
-import {TransitionRouterProvider, TransitionContext} from './utils/transitionContext';
-import {Hidden} from './utils/contextComp';
+import React, {useEffect, useState} from 'react';
+import {BrowserRouter, MemoryRouter, useHistory, Route as RouteRaw} from 'react-router-dom';
+import {TransitionProvider} from './utils/transition';
+import {HistoryObserver, Hidden} from './utils/transition';
 import Main from './pages/main';
 import Post from './pages/post';
-
-const HistoryObserver = ({vHistory, children}) => {
-  const {setState} = useContext(TransitionContext);
-  const history = useHistory(); 
-  useEffect(() => {
-    setState({history, vHistory});
-  }, []);
-  return <>{children}</>
-}
 
 const VHistoryWrapper = ({children}) => {
   return <BrowserRouter>
@@ -23,12 +14,12 @@ const VHistoryWrapper = ({children}) => {
   </BrowserRouter>
 }
 
-const PageRoute = ({component, ...props}) => <Route {...props} render={_ => <div>{component}</div>} />
+const Route = ({component, ...props}) => <RouteRaw {...props} render={_ => <div>{component}</div>} />
 
 const Pages = () => {
   return <>
-    <PageRoute exact path='/' component={<Main />} />
-    <PageRoute path='/post' component={<Post />} />
+    <Route exact path='/' component={<Main />} />
+    <Route path='/post' component={<Post />} />
   </>
 } 
 
@@ -37,14 +28,14 @@ function App() {
   useEffect(() => {
     setTimeout(() => setIsRender(true));
   }, []);
-  return <TransitionRouterProvider>
+  return <TransitionProvider>
     <MemoryRouter>
       <VHistoryWrapper>
         {isRender && <Pages />}  
       </VHistoryWrapper>
       {isRender && <Hidden><Pages /></Hidden>}
     </MemoryRouter>
-  </TransitionRouterProvider>
+  </TransitionProvider>
 }
 
 export default App;

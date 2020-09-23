@@ -477,7 +477,7 @@ const checkImages = async(imgs) => {
     img.onload = () => resolve(true)
     img.onerror = (err) => reject(err)  
     // 이미지 onload, onerror는 최초 한 번만 실행 되기 때문에, 이미 로딩이 끝난 이미지를 onload로 체크하지 못한다.
-    // 이미지 complete가 true이면 바로 완료처리를 해줘야한다.
+    // 로딩확인이 끝난 이미지 complete 속성이 true로 바뀌는데, true인 이미지는 바로 완료처리를 해줘야한다.
     img.complete && resolve(true)
   }))
 }
@@ -532,9 +532,9 @@ const gotoTransitionPage = async({to, refs}) => {
 ### `참고. React rendering 리액트 렌더링 이해와 최적화 (함수형 컴포넌트)`
 [내용참고](https://medium.com/vingle-tech-blog/react-%EB%A0%8C%EB%8D%94%EB%A7%81-%EC%9D%B4%ED%95%B4%ED%95%98%EA%B8%B0-f255d6569849)   
 리액트에서 `jsx`(return 부분)을 렌더링을 실행하는 조건은
-1. **`props`**가 변경되었을 때
-2. **`state`**가 변경되었을 때
-3. **`부모 컴포넌트가`** 렌더링 되었을 때
+1. **props**가 변경되었을 때
+2. **state**가 변경되었을 때
+3. **부모 컴포넌트가** 렌더링 되었을 때
 
 1~3번의 과정을 통해 컴포넌트가 렌더링 될 때 **자식 컴포넌트** 또한 같은 과정으로 렌더링이 된다.
 하지만 렌더링이 다시 되어 업데이트 될 변경사항이 없는데, 위 과정을 통해 다시 렌더링이 된다면 성능이 떨어지고, 컴포넌트 트리구조가 깊을 수록 
