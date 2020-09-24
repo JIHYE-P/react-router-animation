@@ -16,11 +16,12 @@ const StyledDetail = styled.div`
 
 
 const Post = () => {
-  return <div>
-    <Ref.section name='post1'></Ref.section>
-    <Ref.section name='post2'></Ref.section>
+  return <Ref.section name='post'>
+    <Ref.img src="https://picsum.photos/300/200?1" preload={true} />
+    <Ref.img src="https://picsum.photos/300/200" preload={true} />
+    <br />
     <Link to='/' seed='fadeInOut'>goto main</Link>
-  </div>
+  </Ref.section>
 }
 
 export default Post;

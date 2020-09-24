@@ -35,7 +35,7 @@ const fixed = (() => {
 
 const p1Cache = f => { 
   const store = new Map; //네이티브 객체
-  console.log(store);
+  // console.log(store);
   return arg => store.has(arg) ? store.get(arg) : store.set(arg, f(arg)).get(arg);
 }
 
@@ -50,15 +50,18 @@ const checkImages = async(imgs) => {
 // setState: (obj) => setState(Object.assign(state, obj)),
 export const TransitionContext = createContext();
 export const TransitionProvider = (props) => {
-  const [state, setState] = useState({});
-  const [refs, setRefs] = useState({});
+  const [state, setState] = useState({
+    history: {
+      browser: null,
+      memory: null,
+    },
+    targets: {}
+  });
   const [images, setImages] = useState(new Set);
   return <TransitionContext.Provider {...props} 
     value={{
       state,
       setState: (obj) => setState(state => Object.assign(state, obj)),
-      refs, 
-      setRefs: (obj) => setRefs(refs => Object.assign(refs, obj)),
       images,
       setImages: el => setImages(images.add(el))
     }}
@@ -68,17 +71,17 @@ export const TransitionProvider = (props) => {
 let lock = false;
 export const Link = ({to, seed, ...props}) => {
   return <TransitionContext.Consumer>
-    {({state, refs, images}) => {
-      const {history, vHistory} = state.history;
+    {({state, images}) => {
+      const {browser, memory} = state.history;
       const gotoPage = async() => {
         if(lock) return;
         lock = true;
-        vHistory.push(to);
+        memory.push(to);
         await sleep(0);
         await Promise.all(await checkImages([...images]));
-        await gotoTransitionPage({to, refs, seed});
+        await gotoTransitionPage({to, state, seed});
         images.clear();
-        history.push(to);
+        browser.push(to);
         lock = false;
       }
       return <a {...props} onClick={gotoPage}></a>
@@ -98,35 +101,51 @@ export const HistoryObserver = ({vHistory, children}) => {
   return <>{children}</>
 }
 
+const groupStore = new Map;
 const RefCompFactory = p1Cache(tagName => {
-  const Make = ({to, name, preload, children, ...props}) => {
+  const Make = ({to, name, group, preload, children, ...props}) => {
     const {state, setState, setImages} = useContext(TransitionContext);
     const {history: {browser, memory}} = state;
     const el = useRef(null);
     const history = useHistory();
     useEffect(() => {
       if(!el) return;
-      //({history: [name]: el.current})
-      // if(history === state.history){
-      //   name && setRefs({[`browser.${name}`]: el.current});
-      // }else if(history === state.vHistory){
-      //   name && setRefs({[`memory.${name}`]: el.current});
-      //   if(preload && el.current.tagName==='IMG') setImages(el.current);
-      // }
       const {targets} = state;
       if(history === browser){
-        // targets: {...targets, [name]: {...targets[name], browser: el.current}}
-        name && setState({ targets: {...targets, [name]: {browser: el.current}} });
+        name && setState({targets: {...targets, [name]: {...targets[name], browser: el.current}}});  
+        if(group){
+          // groupStore = {
+          //   postThumb: {
+          //     0: { text: el, },
+          //     1: { text: el, }
+          //   } 
+          // }
+          const [groupName, groupIndex] = group;
+          const groupMap = !groupStore.has(groupName) ? groupStore.set(groupName, new Map).get(groupName) : groupStore.get(groupName);
+          const targetMap = !groupMap.has(groupIndex) ? groupMap.set(groupIndex, new Map).get(groupIndex) : groupMap.get(groupIndex);
+          targetMap.set(name, el.current)
+        }
       }else if(history === memory){
-        // name && setState({...state, target: {memory: {[name]: el.current}}});
-        name && setState({ targets: {...targets, [name]: {memory: el.current}} });
+        name && setState({targets: { ...targets, [name]: {...targets[name], memory: el.current}}});
+        switch(el.current.tagName){
+        case 'IMG': preload && setImages(el.current); 
+        break;
+        case 'VIDEO': return;
+        }
       }
-      console.log(state)
     }, [el]);
-
-    const clickHander = to && (() => {
-      console.log(to)
-    })
+    const clickHander = to && ((ev) => {
+      if(group){
+        const [groupName, groupIndex] = group;
+        const targetGroup = groupStore.get(groupName);
+        const target = targetGroup.get(groupIndex);
+        const result = {};
+        for(let [name, el] of target){
+          Object.assign(result, {[name]: {...state.targets[name], browser: el}});
+        }
+        console.log(result)
+      }
+    });
     return React.createElement(tagName, {ref: el, onClick: clickHander, ...props}, children);
   }
   return Make;
@@ -137,19 +156,19 @@ export const Ref = new Proxy(RefComp, {
   get: (target, property) => RefCompFactory(property.toLowerCase())
 });
 
-const gotoTransitionPage = async({to, refs, seed}) => {
+const gotoTransitionPage = async({to, state, seed}) => {
   let nextRef = null;
   let currentRef = null;
-
+  const {targets: {browser, memory}} = state;
   if(seed === 'fadeInOut'){
     switch(to){
     case '/': 
-      nextRef = refs[`memory.main`];
-      currentRef = refs[`browser.post`];
+      nextRef = memory.main;
+      currentRef = browser.post;
     break;
     case '/post':
-      nextRef = refs[`memory.post`];
-      currentRef = refs[`browser.main`];
+      nextRef = memory.post;
+      currentRef = browser.main;
     break
     }
     fixed.append(nextRef);
@@ -164,9 +183,3 @@ const gotoTransitionPage = async({to, refs, seed}) => {
   }
   if(seed === 'postAnime'){}
 }
-
-// 포스트 그리드형태에서 클릭한 포스트 하나의 wrapper ref(엘리먼트)를 가져오는 기능의 함수 만들기
-// 클릭했을 때 refs에 저장되어 있는데 wrapper 여야함
-// wrapper의 childNodes 배열로 저장?
-
-
