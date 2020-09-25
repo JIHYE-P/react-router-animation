@@ -93,36 +93,61 @@ const App = () => {
 
 `Context API`를 사용하여 전역 데이터 상태를 생성하여 여러 컴포넌트를 거쳐 데이터를 전달하지 않고,
 `Context`를 통해서 바로 원하는 데이터 값을 줄 수 있다.
-전역으로 사용해야 할 데이터는 `1. 브라우저 라우터 히스토리, 2. 메모리 라우터 히스토리, 3. 브라우저 페이지 ref, 4. 메모리 페이지 ref`로 정리할 수 있다. `ref`는 나중에 정리하고 `history`부터 전역 상태로 관리해보자.
+전역으로 사용해야 할 데이터는 `1. 브라우저 라우터 히스토리, 2. 메모리 라우터 히스토리, 3. 브라우저 페이지 엘리먼트, 4. 메모리 페이지 엘리먼트`로 정리할 수 있다. `엘리먼트`는 나중에 정리하고 `history`부터 전역 상태로 관리해보자.
 
 ```jsx
 const sleep = ms => new Promise(res => setTimeout(res, ms));
-const PageTransitionContext = createContext(); // Context API 생성
-const {Provider, Consumer: PageTransitionConsumer} = PageTransitionContext;
-export const PageTransitionProvider = ({...props}) => {
-  const [state, setState] = useState({});
-  const [refs, setRefs] = useState({}); // 라우터 컴포넌트 ref (엘리먼트) 상태관리
+const initalValue = { //라우터 히스토리 정보와, 애니메이션 대상자 엘리먼트 상태 초기값 설정 
+  history: {
+    browser: null,
+    memory: null;
+  },
+  targets: {}
+}
+const TransitionContext = createContext(); // Context API 생성
+const {Provider, Consumer} = TransitionContext;
+export const TransitionProvider = ({...props}) => {
+  const [state, setState] = useState(initalValue);
   return <Provider {...props} value={{
     state, 
-    setState: obj => setState(Object.assign(state, obj)),
-    refs, 
-    setRefs: obj => setRefs(Object.assign(refs, obj))
+    setState: obj => setState(state => Object.assign(state, obj))
   }} />
 }
 ```
-
+`Context`의 `history, memoryHistory`의 상태값을 저장하기 위해 메모리 라우터과, 브라우저 라우터 히스토리를 모두 받아오는 `HistoryObserver` 컴포넌트에서 상태값을 저장해준다.
 ```jsx
-export const Link = ({to, children, className}) => {
-  return <PageTransitionConsumer>
+const HistoryObserver = ({memoryHistory, children}) => {
+  const context = useContext(TransitionContext); // Context.Provider value를 객체로 반환
+  const history = useHistory();
+  useEffect(() => {
+    context.setState({history: {
+      browser: history,
+      memory: memoryHistory
+    }});
+  }, []);
+  return <>{children}</>
+}
+```
+
+`Context API`로 만든 `Provider` 최상위 컴포넌트가 전역 상태를 관리하고, `react-router-dom <Link />`를 대신해서
+context 상태값을 사용할 수 있는 또 다른 `Link` 컴포넌트를 만든다. 
+
+링크를 연결해 줄 페이지 컴포넌트에서 `<Link to="post">Go to Post Page</Link>`를 사용하면 
+메모리 라우터 `Post` 페이지가 렌더링 된 후 2초 뒤에 (sleep 함수) 브라우저 라우터 `history.push()`가 작동하면서
+주소가 해당 링크로 이동되어 브라우저 라우터 `Post` 페이지가 렌더링된다.
+```jsx
+export const Link = ({to, children, ...props}) => {
+  return <Consumer>
     {({state}) => {
-      const gotoPage = () = async() => {
-        state.memoryHistory.push(to);
+      const {history: {browser, memory}} = state;
+      const gotoPage = async() => {
+        memory.push(to);
         await sleep(2000);
-        state.history.push(to);
+        browser.push(to);
       }
-      return <a onClick={gotoPage()} className={className}>{children}</a>
+      return <a onClick={gotoPage} {...props}>{children}</a>
     }}
-  </PageTransitionConsumer>
+  </Consumer>
 }
 
 // App 컴포넌트 수정
@@ -135,27 +160,9 @@ const App = () => {
   </PageTransitionProvider>
 }
 ```
-
-`Context API`로 만든 `Provider` 최상위 컴포넌트가 전역 상태를 관리하고, `react-router-dom <Link />`를 대신해서
-context 상태값을 사용할 수 있는 또 다른 `Link` 컴포넌트를 만든다. `Context`의 `history, memoryHistory`의 상태값을 저장하기 위해 메모리 라우터과, 브라우저 라우터 히스토리를 모두 받아오는 `HistoryObserver` 컴포넌트에서 상태값을 저장해준다.
-```jsx
-const HistoryObserver = ({memoryHistory, children}) => {
-  const context = useContext(PageTransitionContext); // Context.Provider value를 객체로 반환
-  const history = useHistory();
-  useEffect(() => {
-    context.setState({history, memoryHistory});
-  }, []);
-  return <>{children}</>
-}
-```
-
-링크를 연결해 줄 페이지 컴포넌트에서 `<Link to="post">Go to Post Page</Link>`를 사용하면 
-메모리 라우터 `Post` 페이지가 렌더링 된 후 2초 뒤에 (sleep 함수) 브라우저 라우터 `history.push()`가 작동하면서
-주소가 해당 링크로 이동되어 브라우저 라우터 `Post` 페이지가 렌더링된다.
-
 -----
 
-### `3. components Ref 얻어오기`
+### `3. components Ref 엘리먼트 얻어오기`
 애니메이션을 주기 위해선 대상자의 `element(Ref)`를 알아야 애니메이션 `css`등 을 적용 할 수 있다. 대상자를 감싸는 wrapper jsx`<div>` 컴포넌트를 만들어서 `ref`를 얻을 수 있는 방법이 있다.
 ```jsx
 const Ref = ({main, children}) => {
@@ -244,28 +251,53 @@ const RefCompFactory = pCached(tagName => {
 ```
 `React.createElement` 함수를 `pCached` 인수값으로 넣어 `Ref`를 이용하여 동일한 jsx를 만들 때 불필요한 리소스를 줄일 수 있다.
 
-이제 `React.createElement`의 ref을 `PageTransitionContext`의 메모리 라우터의 ref, 브라우저 라우터의 ref를 각각 저장한다.
+이제 `React.createElement`의 ref을 `TransitionContext`의 메모리 라우터의 ref, 브라우저 라우터의 ref를 각각 저장한다.
+```
+* state.targets 의 구조
+targets: {
+  'main': {
+    browser: element,
+    memory: element
+  },
+  'post': {
+    browser: element,
+    memory: element
+  },
+}
+```
 ```jsx
 const RefCompFactory = pCached(tagName => {
   return ({name, children, ...props}) => {
     const history = useHistory();
-    const {state, refs, setRefs} = useContext(PageTransitionContext);
+    const {state, setState} = useContext(TransitionContext);
+    const {history: {broswer, memory}} = state;
     const el = useRef();
     useEffect(() => {
       if(!el) return;
-      if(state.history === history){
-        setRefs({ [`browser.${name}.ref`]: el.current });
-      }else if(state.memoryHistory === history){
-        setRefs({ [`memory.${name}.ref`]: el.current });
+      const {targets} = state; //이미 저장되어 있는 ref 엘리먼트
+      if(history === broswer){
+        setState({targets: {
+          ...targets,
+          [name]: {
+            ...targets[name],
+            broswer: el.current
+          }
+        }})
+      }else if(history === memory){
+        setState({targets: {
+          ...targets,
+          [name]: {
+            ...targets[name],
+            memory: el.current
+          }
+        }})
       }
-      console.log(refs)
     }, [el]); 
     return React.createElement(tagName, {ref: el, ...props}, children)
   }
 });
 ```
-
-`context`의 `state` 값을 보면 페이지가 처음 렌더링 될 때 `ref`는 `undefined`로 들어오게 되는데, 그 이유는 렌더링이 될 떄 자식 컴포넌트가 먼저 그려지고 난 다음 부모 컴포넌트가 그려지게 되는데, 자식컴포넌트에서는 부모의 history를 넘겨받고 있는데 부모가 그려지기 전이라 자식 컴포넌트에서는 히스토리가 `undefined`로 나오는 것이다.
+`context`의 `state.targets` 값을 보면 페이지가 처음 렌더링 될 때 `ref 엘리먼트`는 `undefined`로 들어오게 되는데, 그 이유는 렌더링이 될 떄 자식 컴포넌트가 먼저 그려지고 난 다음 부모 컴포넌트가 그려지게 되는데, 자식컴포넌트에서는 부모의 history를 넘겨받고 있는데 부모가 그려지기 전이라 자식 컴포넌트에서는 히스토리가 `undefined`로 나오는 것이다.
 
 그래서 부모와 자식간의 렌더링 시간차를 두어서 부모의 히스토리를 받아올 수 도록 한다.
 ```jsx
@@ -351,64 +383,66 @@ const fixed = (() => {
 
 현재 페이지와, 다음 페이지의 `ref`를 메모리 라우터에서 얻어와 `fixed` 함수를 사용하여 트렌지션 애니메이션이
 `링크 클릭 시` 작동해야하므로 `Link` 컴포넌트에서 `onClick` 함수에 애니메이션 로직을 추가해야한다.  
-애니메이션 효과가 여러가지 일 수도 있고, 애니메이션이 걸리는 대상자 ref 엘리먼트도 다 다를 수 있기 때문에 `onCick` 함수에 풀어쓰는것 보단 애니메이션이 작동할 때 필요한 데이터를 매개변수로 받는 (ex pathName, 현재 위치 ref, 다음 위치 ref 등등) 함수를 만들어서 호출하는 것이 편리하다. 또한, `Link` 컴포넌트가 `context`의 상태값을 공유 받아 처리하고 있다.
+애니메이션 효과가 여러가지 일 수도 있고, 애니메이션이 걸리는 대상자 ref 엘리먼트도 다 다를 수 있기 때문에 `onCick` 함수에 풀어쓰는것 보단 애니메이션이 작동할 때 필요한 데이터를 매개변수로 받아 함수를 호출하는 것이 편리하다.   
+또한, `Link` 컴포넌트가 `context`의 상태값을 공유 받아 처리하고 있다.
 
-현재 `Main` 컴포넌트와 `Post` 컴포넌트의 ref를 얻어올 수 있으니 두 페이지가 서로 전환 될 때 페이드 애니메이션을 적용해본다.  
-`gotoPage` 에서 인자(매개변수)로 `1. 다음 페이지 ref key, 2. 현재 페이지 ref key, 3. 다음 페이지 링크 to`가 필요하다. 
+현재 `Main` 컴포넌트와 `Post` 컴포넌트의 `wrapper 엘리먼트`를 얻어올 수 있으니 두 페이지가 서로 전환 될 때 페이드 애니메이션을 적용해본다.  
 
 ```jsx
 let lock = false;
 // 전역변수 lock 은 `Link`의 onClick 함수가 짧은 시간동안 반복적으로 여러번 클릭 시에도 함수가 한 번 실행되도록 블로킹 처리를 해준다.
 const Link = ({to, children, className}) => {
-  return <PageTransitionConsumer>{({state, refs}) => {
-      const gotoPage = () = async() => {
-        if(lock) return;
-        lock = true;
-        gotoTransitionPage({to, state, refs});
-        lock = false;
-      }
-      return <a onClick={gotoPage()} className={className}>{children}</a>
-    }}
-  </PageTransitionConsumer>
+  return <Consumer>{({state, refs}) => {
+    const {history: {browser, memory}} = state;
+    const gotoPage = async() => {
+      if(lock) return;
+      lock = true;
+      memory.push(to);
+      await sleep(0);
+      await gotoTransitionPage({to, state, seed}); // seed는 애니메이션의 대상자와 효과를 구분하기 위한
+      browser.push(to);
+      lock = false;
+    }
+    return <a onClick={gotoPage} className={className}>{children}</a>
+  }}</Consumer>
 }
-const gotoTransitionPage = ({to, state, refs}) => {
-  const {history, memoryHistory} = state;
-  memoryHistory.push(to);
-  await sleep(0);
-  let currentPage;
-  let nextPage;
-  if(pathname === '/'){
-    nextPage = refs[`memory.post`];
-    currentPage = refs[`browser.main`];
+const gotoTransitionPage = async({to, state, refs}) => {
+  const {targets} = state;
+  let currente;
+  let next;
+  switch(to){
+    case '/': 
+      next = targets.post.memory;
+      currente = targets.main.browser;
+    break;
+    case '/post': 
+      next = targets.main.memory;
+      currente = targets.post.browser;
+    break;
   }
-  if(pathname === '/post'){
-    nextPage = refs[`memory.main`];
-    currentPage = refs[`browser.post`];
-  }
-  fixed.append(nextPage);
+  fixed.append(next);
   tween({ duration: 1000 }).start((v) => {
-    styler(currentPage).set("opacity", 1 - v);
-    styler(nextPage).set("opacity", v);
+    styler(currente).set("opacity", 1 - v);
+    styler(next).set("opacity", v);
   });
   fixed.show();
   await sleep(1000);
-  fixed.remove(nextPage);
+  fixed.remove(next);
   fixed.hide();
-  history.push(to);
 }
 ```
-여기서 주의할 점은 `Ref` 컴포넌트의 해당 `ref` 값을 생명주기 `useEffect`내에서 `context` 상태값에 저장하고 있다. `useEffect`는 `jsx`가 렌더링이 끝난 후 수행된다.  
-`memoryHistory.push(to)`링크 이동 후 이동 된 페이지의 `Ref`컴포넌트의 `ref`엘리먼트 값이 `context.refs`에 렌더링이 끝난 후 저장되기 때문에 처음에 콘솔로 `refs`를 찍어보면 `undefined`로 저장된다.  
-비동기 `sleep` 함수를 이용하여 `push()`후 `useEffect()`가 먼저 수행하고 나서 `context.refs`에서 해당 `ref` 엘리먼트을 얻어 올 수 있다.
+여기서 주의할 점은 `Ref` 컴포넌트의 해당 `ref` 값을 생명주기 `useEffect`내에서 `context` 상태값에 저장하고 있다. `useEffect`는 `jsx`가 렌더링이 끝난 후 수행된다. (비동기)   
+`memory.push(to)`링크 이동 후 이동 된 페이지의 `Ref`컴포넌트의 `ref`엘리먼트 값이 `state.targets`에 렌더링이 끝난 후 저장되기 때문에 처음에 콘솔로 `state.targets`를 찍어보면 `undefined`로 저장된다.  
+비동기 `sleep` 함수를 이용하여 `push()`후 `useEffect()`가 먼저 수행하고 나서 `state.targets`에 해당 `ref 엘리먼트`얻어 올 수 있다.   
 
-또 하나의 문제점은 main -> post / post -> main으로 페이지 이동 될 때 아래와 같은 에러가 발생한다.  
+또 하나의 문제점은 `main -> post`,  `post -> main`으로 페이지 이동 될 때 아래와 같은 에러가 발생한다.  
 그 이유는 React가 렌더링 한 DOM 노드가 (다른 라이브러리)에 의해 제거되면 React는 변경 사항을 알 수 없으므로 React가 생성한 DOM 부분을 조작하지 않아야 한다.    
 예를 들어 제거한 DOM 노드를 React 컴포넌트가 다시 렌더링할 때 에러가 발행 할 수 있다.   
 ```Uncaught DOMException: Failed to execute 'removeChild' on 'Node': The node to be removed is not a child of this node. [react-dom.development.js:7601]```
 [내용 참고](https://stackoverrun.com/ko/q/12098469)
 
-현재 React `Ref` 컴포넌트로 DOM을 렌더링하여 해당 `ref`엘리먼트를 받아 `fixed`자바스크립트 네이티브 함수를 통해 강제로 다른 엘리먼트에 `appendChild, removeChild`를 하고 있다.  
-`ref`엘리먼트가 있던 `root자리`에 없어서 다시 렌더링 될 때 에러가 발생하는 것이다.
+현재 React `Ref` 컴포넌트로 DOM을 렌더링하여 해당 `ref 엘리먼트`를 받아 `fixed`자바스크립트 네이티브 함수를 통해 강제로 다른 엘리먼트에 `appendChild, removeChild`를 하고 있다.  
+`ref 엘리먼트`있던 `root자리`에 없어서 다시 렌더링 될 때 에러가 발생하는 것이다.
 이 에러를 해결하기 위해 `Ref`를 사용하여 렌더링하고 있는 컴포넌트를 jsx `<div>`로 한번 더 감싸주면 해결된다.
 
 ```jsx
@@ -439,9 +473,8 @@ const Pages = () => <>
 
 먼저 로딩이 필요한 엘리먼트들의 집합 `Set`을 `context`에 생성해야 `Link`컴포넌트에서 상태를 공유받을 수 있다.
 ```jsx
-const PageTransitionProvider = ({...props}) => {
-  const [state, setState] = useState({});
-  const [refs, setRefs] = useState({});
+const TransitionProvider = ({...props}) => {
+  ...
   const [images, setImages] = useState(new Set);
   return <Provider {...props} value={{
     ...
@@ -458,10 +491,8 @@ const RefCompFactory = pCached(tagName => {
     ...
     useEffect(() => {
       if(!el) return;
-      if(state.history === history){
-        name && setRefs({ [`browser.${name}.ref`]: el.current });
-      }else if(state.memoryHistory === history){
-        name && setRefs({ [`memory.${name}.ref`]: el.current });
+      ...
+      if(history === memory){
         if(preload && el.current.tagName === 'IMG') && setImages(el.current);
       }
     }, [el]); 
@@ -483,47 +514,24 @@ const checkImages = async(imgs) => {
 }
 ```
 
-`Link` 컴포넌트에서 `context Set` 저장 되어있는 이미지들이 로딩이 끝난 후 트렌지션 애니메이션 함수가 수행되도록 로직 순서를 바꾼다. `gotoTransitionPage` 함수에서 `메모리라우터`의 있는 `ref`엘리먼트를 가져오기 위해 메모리라우터 링크가 이동되는 로직이 `checkImages` 함수보다 먼저 실행되어야 `Set`에 저장되어있는 데이터를 배열로 분해하여 사용할 수 있다.
+`Link` 컴포넌트에서 `context Set` 저장 되어있는 이미지들이 로딩이 끝난 후 트렌지션 애니메이션 함수가 수행되어야야한다.    
+`메모리라우터`의 있는 `ref 엘리먼트`를 가져오기 위해 `(memory.push(to))`메모리라우터 링크가 이동되는 로직이 `checkImages` 함수보다 먼저 실행되어야 `Set`에 저장되어있는 이미지 데이터를 배열로 분해하여 사용할 수 있다.
 ```jsx
 const Link = ({to, children, className}) => {
   return <PageTransitionConsumer>{({state, refs, images}) => {
-      const gotoPage = async() => {
-        if(lock) return;
-        lock = true;
-        state.vHistory.push(to);
-        await sleep(0);
-        await Promise.all(await checkImages([...images]));
-        await gotoTransitionPage({to, refs});
-        state.history.push(to);
-        images.clear();
-        lock = false;
-      }
-      return <a onClick={gotoPage} className={className}>{children}</a>
-    }}
-  </PageTransitionConsumer>
-}
-
-const gotoTransitionPage = async({to, refs}) => {
-  const duration = {duration: 1000}
-  let nextPage = null;
-  let currentPage = null;
-  if(to === '/'){
-    nextPage = refs[`memory.main`];
-    currentPage = refs[`browser.post`];
-  }
-  if(to === '/post'){
-    nextPage = refs[`memory.post`];
-    currentPage = refs[`browser.main`];
-  }
-  fixed.append(nextPage);
-  tween(duration).start(v => {
-    styler(currentPage).set('opacity', 1-v);
-    styler(nextPage).set('opacity', v)
-  });
-  fixed.show();
-  await sleep(1000);
-  fixed.remove(nextPage);
-  fixed.hide();
+    const {history: {browser, memory}} = state;
+    const gotoPage = async() => {
+      if(lock) return;
+      lock = true;
+      memory.push(to);
+      await sleep(0);
+      await Promise.all(await checkImages([...images]));
+      await gotoTransitionPage({to, state, seed});
+      browser.push(to);
+      lock = false;
+    }
+    return <a onClick={gotoPage} className={className}>{children}</a>
+  }}</PageTransitionConsumer>
 }
 ```
 
