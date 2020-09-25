@@ -4,14 +4,6 @@ import Posts from '../components/posts';
 import {getMoviesList} from '../utils'
 import {Link, Ref} from '../utils/transition';
 
-const listStyle = {
-  display: 'inline-block',
-  verticalAlign: 'top',
-  padding: '10px',
-  width: '25%',
-  fontSize: '13px'
-}
-
 const Main = () => {
   const [movies, setMovies] = useState([]);
   useEffect(() => {
@@ -32,11 +24,11 @@ const Main = () => {
         </Ref.div>
       )}
     </div>
-    {/* <div style={{margin:'30px 0'}}>
-      <Ref.div group={['notice', 0]} to='/post' name="wrapper">
+    <div style={{margin:'30px 0'}}>
+      <Ref.div  to='/post' name="postImg">
         <Ref.img src="https://picsum.photos/300/200" preload={true} />
       </Ref.div>
-    </div> */}
+    </div>
   </Ref.section>
 }
 

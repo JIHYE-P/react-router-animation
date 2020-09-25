@@ -135,13 +135,14 @@ const RefCompFactory = p1Cache(tagName => {
       }
     }, [el]);
     const clickHander = to && ((ev) => {
+      const {targets} = state;
       if(group){
         const [groupName, groupIndex] = group;
         const targetGroup = groupStore.get(groupName);
         const target = targetGroup.get(groupIndex);
         const result = {};
         for(let [name, el] of target){
-          Object.assign(result, {[name]: {...state.targets[name], browser: el}});
+          Object.assign(result, {[name]: {...targets[name], browser: el}});
         }
         console.log(result)
       }
@@ -159,16 +160,16 @@ export const Ref = new Proxy(RefComp, {
 const gotoTransitionPage = async({to, state, seed}) => {
   let nextRef = null;
   let currentRef = null;
-  const {targets: {browser, memory}} = state;
+  const {targets} = state;
   if(seed === 'fadeInOut'){
     switch(to){
     case '/': 
-      nextRef = memory.main;
-      currentRef = browser.post;
+      nextRef = targets.main.memory;
+      currentRef = targets.post.browser;
     break;
     case '/post':
-      nextRef = memory.post;
-      currentRef = browser.main;
+      nextRef = targets.post.memory;
+      currentRef = targets.main.browser;
     break
     }
     fixed.append(nextRef);
