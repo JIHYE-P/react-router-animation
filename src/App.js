@@ -5,6 +5,7 @@ import {TransitionProvider} from './utils/transition';
 import {HistoryObserver, Hidden} from './utils/transition';
 import Main from './pages/main';
 import Post from './pages/post';
+import Photo from './pages/photo';
 
 const VHistoryWrapper = ({children}) => {
   return <BrowserRouter>
@@ -20,6 +21,7 @@ const Pages = () => {
   return <>
     <Route exact path='/' component={<Main />} />
     <Route path='/post' component={<Post />} />
+    <Route path='/photo' component={<Photo />} />
   </>
 } 
 

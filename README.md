@@ -474,10 +474,10 @@ const Pages = () => <>
 먼저 로딩이 필요한 엘리먼트들의 집합 `Set`을 `context`에 생성해야 `Link`컴포넌트에서 상태를 공유받을 수 있다.
 ```jsx
 const TransitionProvider = ({...props}) => {
-  ...
+  //...
   const [images, setImages] = useState(new Set);
   return <Provider {...props} value={{
-    ...
+    //...
     images,
     setImages: el => setImages(images.add(el));
   }} />
@@ -488,15 +488,15 @@ const TransitionProvider = ({...props}) => {
 ```jsx
 const RefCompFactory = pCached(tagName => {
   return ({name, preload, children, ...props}) => {
-    ...
+    //...
     useEffect(() => {
       if(!el) return;
-      ...
+      //...
       if(history === memory){
         if(preload && el.current.tagName === 'IMG') && setImages(el.current);
       }
     }, [el]); 
-    ...
+    //...
   }
 });
 ```
@@ -534,6 +534,68 @@ const Link = ({to, children, className}) => {
   }}</PageTransitionConsumer>
 }
 ```
+-----
+
+### 6. 특정 대상자 엘리먼트 저장하기
+현재 `Ref`컴포넌트로 만든 엘리먼트를 저장하여 `Link`클릭 후 페이지 간의 트렌지션 애니메이션 효과를 적용했다.   
+하지만 예를 들어 블로그 포스트 그리드가 있다 가졍하면, 사용자가 클릭한 포스트의 각각 자식 엘리먼트에게 애니메이션을 적용하고 싶을 때, 내가 클릭한 포스트 한개의 `target element`와 그 안에 `children element`들을 알아야한다.   
+
+먼저 블로그 포스트들을 한 그룹으로 묶기 위해서 `Ref` 컴포넌트의 프로퍼티의 `group`을 추가하여 `그룹이름`과, 클릭 시 포스트 그룹들 중 해당 `index`값으로 가져오기 위해 `index`를 추가한다.
+```jsx
+blogPosts.map((post, i) => (
+  <Ref.div name="wrap" group={['blog', i]}>
+    <Ref.img name="img" group={['blog', i]} src="https://picsum.photos/300/200?1" preload={true} />
+    <Ref.h1 name="title" group={['blog', i]}>타이틀</Ref.h1>
+    <Ref.p name="content" group={['blog', i]}>본문내용 간략히</Ref.p>
+  </Ref.div>
+))
+```
+`blogPosts`배열에 데이터 길이가 5개가 있다면, 그룹 `blog` 라는 곳에 5개의 각각 `element`들이 저장되어야한다.
+```
+{
+  blog: [
+    {0 : 
+      wrap: element,
+      img: element,
+      ...
+    },
+    {1 : 
+      wrap: element,
+      img: element,
+      ...
+    },
+    {2 : 
+      wrap: element,
+      img: element,
+      ...
+    },
+    ...
+  ]
+}
+```
+이런 구조로 저장이 되어야 클릭 시 해당 포스트 `index`값과 `blog`그룹의 `index`값으로 해당 엘리먼트들을 가져올 수가 있다.   
+중복된 값이 들어가지 않고, `키-값` 쌍으로 저장하여 해당 `키`값으로 반환할 수 있는 `new Map`으로 그룹을 만든다.   
+`RefCompFactory` 함수 전역으로 `const groupStore = new Map()`을 선언하고, `group`프로퍼티도 추가하여 지정한 `group`데이터를 받아온다.
+
+```jsx
+const groupStore = new Map();
+const RefCompFactory = pCached(tagName => {
+  return ({name, group, children, ...props}) => {
+    useEffect(() => {
+      if(!el) return;
+      const {targets} = state;
+      //... 
+      if(group){
+        const [groupName, groupIndex] = group;
+        //1. groupStore에 props.group 데이터 저장. 
+        const groupMap = !groupStore.has(groupName) ? groupStore.set(groupName, new Map).get(groupName) : groupStore.get(groupName);
+        //2. 
+      }
+    }, [el]); 
+    //...
+  }
+});
+```
 
 -----
 
@@ -549,42 +611,3 @@ const Link = ({to, children, className}) => {
 더 많은 렌더링이 수행하므로 성능에 좋지 않다.   
 [예제참고](https://codesandbox.io/s/strange-currying-5lxrp?from-embed)   
 ```부모 컴포넌트에서 자기자신 상태를 변경하였지만, 자식 컴포넌트(Title)가 다시 렌더링 되는 것을 콘솔을 통해 확인 할 수 있다.```   
-
-```jsx
-export default function App() {
-  const [value, setValue] = useState({ name: "jihye" });
-  console.log("render", value);
-  return (
-    <div className="App">
-      <h1>Hello CodeSandbox</h1>
-      <h2>{value.name} - Start editing to see some magic happen!</h2>
-      <input type="text" name="name" onChange={changeValue} />
-    </div>
-  );
-}
-```
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

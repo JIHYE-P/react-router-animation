@@ -15,7 +15,7 @@ export const Hidden = ({children}) => {
   }}>{children}</div>
 }
 
-const fixed = (() => {
+export const fixed = (() => {
   const el = Object.assign(document.createElement('div'), {
     style: `position:fixed; top:0; left:0; width:100%; height:100%; z-index:10; display:none `
   });
@@ -49,6 +49,7 @@ const checkImages = async(imgs) => {
 // setState: (obj) => setState({...state, ...obj}),
 // setState: (obj) => setState(Object.assign(state, obj)),
 export const TransitionContext = createContext();
+const {Provider, Consumer} = TransitionContext;
 export const TransitionProvider = (props) => {
   const [state, setState] = useState({
     history: {
@@ -58,7 +59,7 @@ export const TransitionProvider = (props) => {
     targets: {}
   });
   const [images, setImages] = useState(new Set);
-  return <TransitionContext.Provider {...props} 
+  return <Provider {...props} 
     value={{
       state,
       setState: (obj) => setState(state => Object.assign(state, obj)),
@@ -70,7 +71,7 @@ export const TransitionProvider = (props) => {
 
 let lock = false;
 export const Link = ({to, seed, ...props}) => {
-  return <TransitionContext.Consumer>
+  return <Consumer>
     {({state, images}) => {
       const {browser, memory} = state.history;
       const gotoPage = async() => {
@@ -86,7 +87,7 @@ export const Link = ({to, seed, ...props}) => {
       }
       return <a {...props} onClick={gotoPage}></a>
     }}
-  </TransitionContext.Consumer>
+  </Consumer>
 };
 
 export const HistoryObserver = ({vHistory, children}) => {
@@ -114,12 +115,6 @@ const RefCompFactory = p1Cache(tagName => {
       if(history === browser){
         name && setState({targets: {...targets, [name]: {...targets[name], browser: el.current}}});  
         if(group){
-          // groupStore = {
-          //   postThumb: {
-          //     0: { text: el, },
-          //     1: { text: el, }
-          //   } 
-          // }
           const [groupName, groupIndex] = group;
           const groupMap = !groupStore.has(groupName) ? groupStore.set(groupName, new Map).get(groupName) : groupStore.get(groupName);
           const targetMap = !groupMap.has(groupIndex) ? groupMap.set(groupIndex, new Map).get(groupIndex) : groupMap.get(groupIndex);
