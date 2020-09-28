@@ -577,7 +577,7 @@ blogPosts.map((post, i) => (
 중복된 값이 들어가지 않고, `키-값` 쌍으로 저장하여 해당 `키`값으로 반환할 수 있는 `new Map`으로 그룹을 만든다.   
 `RefCompFactory` 함수 전역으로 `const groupStore = new Map()`을 선언하고, `group`프로퍼티도 추가하여 지정한 `group`데이터를 받아온다.
 
-```jsx
+```js
 const groupStore = new Map();
 const RefCompFactory = pCached(tagName => {
   return ({name, group, children, ...props}) => {
@@ -587,12 +587,28 @@ const RefCompFactory = pCached(tagName => {
       //... 
       if(group){
         const [groupName, groupIndex] = group;
-        //1. groupStore에 props.group 데이터 저장. 
+        //1. groupStore에 props.group name 별로 각각 데이터 저장. 
         const groupMap = !groupStore.has(groupName) ? groupStore.set(groupName, new Map).get(groupName) : groupStore.get(groupName);
-        //2. 
-      }
+        //2. group[name] Map에 index 저장
+        const targetMap = !groupMap.has(groupIndex) ? groupMap.set(groupIndex, new Map).get(groupIndex) : groupMap.get(groupIndex);
+        targetMap.set(name, el.current)
+      } 
     }, [el]); 
-    //...
+
+    const clickHander = to && ev => {
+      const {targets} = state;
+      if(group){
+        const [groupName, groupIndex] = group;
+        const targetGroup = groupStore.get(groupName);
+        const target = targetGroup.get(groupIndex);
+        const result = {}
+        for(let [name, el] of target){
+          Object.assgin(result, {[name]: {...targets[name], browser: el}})
+        }
+        console.log(result);
+      }
+    }
+    return React.createElement(tagName, {ref: el, onClick: clickHander, ...props}, children);
   }
 });
 ```

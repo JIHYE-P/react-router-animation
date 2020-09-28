@@ -25,6 +25,7 @@ export const fixed = (() => {
     hide: () => el.style.display = 'none',
     append: (child) => el.appendChild(child),
     remove: (child) => el.removeChild(child),
+    replace: (prev, next) => el.replaceChild(prev, next),
     async trans(f){
       this.show();
       await f();
@@ -39,7 +40,7 @@ const p1Cache = f => {
   return arg => store.has(arg) ? store.get(arg) : store.set(arg, f(arg)).get(arg);
 }
 
-const checkImages = async(imgs) => {
+export const checkImages = (imgs) => {
   return imgs.map(img => new Promise((resolve) => {
     img.onload = () => resolve(true); // onload는 최초 한번만 실행
     img.onerror = err => resolve(err);
