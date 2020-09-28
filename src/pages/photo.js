@@ -23,13 +23,14 @@ const movingImage = (from, to) => {
   };
 }
 
+// document.createComment
 const animateInitial = async(from, to) => {
   await Promise.all(checkImages([from, to]));
   const fromRect = from.getBoundingClientRect();
   const toRect = to.getBoundingClientRect();
-  const {width, height, position, transform, right, bottom, top, left} = to.style; //처음 to 의 스타일 속성들 저장
+  const {width, height, position, transform, right, bottom, top, left} = to.style; //렌더링 처음 되었을 때 toImage의 스타일 속성들 저장
   const placeholder = Object.assign(document.createElement('div'), {style: `
-    position: absoulte;
+    position: absolute;
     width: ${toRect.width}px;
     height: ${toRect.height}px;
     right: 0;
@@ -83,13 +84,12 @@ const animateInitial = async(from, to) => {
     },
     complete: () => {
       setTimeout(() => {
-        Object.assign(to.style, {
+        Object.assign(to.style, { //렌더링 될 때 저장했던 toImage의 스타일로 다시 초기화 시켜주기
           width, height, position, transform, right, bottom, top, left
         });
         placeholder.parentNode.replaceChild(to, placeholder);
         fixed.hide();
       }, 0);
-      console.log(to)
     }
   });
 }
