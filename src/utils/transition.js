@@ -1,17 +1,19 @@
-import React, {createContext, useContext, useState, useEffect, useRef} from 'react';
+import React, {createContext, useContext, useState, useEffect, useRef, memo} from 'react';
 import {useHistory} from 'react-router-dom';
 import {styler, tween} from 'popmotion';
 import {sleep} from '.';
 
 export const Hidden = ({children}) => {
   return <div style={{
-    width: 0,
-    height: 0,
+    width: '100%',
+    height: '100%',
     position: 'absolute',
     top: 0,
     left: 0,
     zIndex: -1,
-    overflow: 'hidden'
+    overflow: 'hidden',
+    visibility: 'hidden',
+    opacity: 0.0001 // IE에서 visibility hidden 처리하면 width/height 0/0 으로 잡힘
   }}>{children}</div>
 }
 
@@ -40,15 +42,12 @@ const p1Cache = f => {
   return arg => store.has(arg) ? store.get(arg) : store.set(arg, f(arg)).get(arg);
 }
 
-export const checkImages = (imgs) => {
-  return imgs.map(img => new Promise((resolve) => {
-    img.onload = () => resolve(true); // onload는 최초 한번만 실행
-    img.onerror = err => resolve(err);
-    img.complete && resolve(true);
-  }));
+export const checkPreload = (el) => {
+  switch(el.tagName){
+    case 'IMG': return new Promise(res => el.complete ? res() : el.onload = () => res());
+  }
 };
-// setState: (obj) => setState({...state, ...obj}),
-// setState: (obj) => setState(Object.assign(state, obj)),
+
 export const TransitionContext = createContext();
 const {Provider, Consumer} = TransitionContext;
 export const TransitionProvider = (props) => {
@@ -57,39 +56,13 @@ export const TransitionProvider = (props) => {
       browser: null,
       memory: null,
     },
-    targets: {}
+    targets: {},
+    preload: new Set
   });
-  const [images, setImages] = useState(new Set);
   return <Provider {...props} 
-    value={{
-      state,
-      setState: (obj) => setState(state => Object.assign(state, obj)),
-      images,
-      setImages: el => setImages(images.add(el))
-    }}
+    value={{ state, setState: (obj) => setState(state => Object.assign(state, obj)) }}
   />
 }
-
-let lock = false;
-export const Link = ({to, seed, ...props}) => {
-  return <Consumer>
-    {({state, images}) => {
-      const {browser, memory} = state.history;
-      const gotoPage = async() => {
-        if(lock) return;
-        lock = true;
-        memory.push(to);
-        await sleep(0);
-        await Promise.all(await checkImages([...images]));
-        await gotoTransitionPage({to, state, seed});
-        images.clear();
-        browser.push(to);
-        lock = false;
-      }
-      return <a {...props} onClick={gotoPage}></a>
-    }}
-  </Consumer>
-};
 
 export const HistoryObserver = ({vHistory, children}) => {
   const {setState} = useContext(TransitionContext);
@@ -103,10 +76,31 @@ export const HistoryObserver = ({vHistory, children}) => {
   return <>{children}</>
 }
 
+let lock = false;
+export const Link = ({to, seed, ...props}) => {
+  return <Consumer>
+    {({state}) => {
+      const {browser, memory} = state.history;
+      const gotoPage = async() => {
+        if(lock) return;
+        lock = true;
+        memory.push(to);
+        await sleep(0);
+        await Promise.all([...state.preload].map(el => checkPreload(el)));
+        await gotoTransitionPage(to, state, seed);
+        state.preload.clear();
+        browser.push(to);
+        lock = false;
+      }
+      return <a {...props} onClick={gotoPage}></a>
+    }}
+  </Consumer>
+};
+
 const groupStore = new Map;
 const RefCompFactory = p1Cache(tagName => {
   const Make = ({to, name, group, preload, children, ...props}) => {
-    const {state, setState, setImages} = useContext(TransitionContext);
+    const {state, setState} = useContext(TransitionContext);
     const {history: {browser, memory}} = state;
     const el = useRef(null);
     const history = useHistory();
@@ -123,15 +117,13 @@ const RefCompFactory = p1Cache(tagName => {
         }
       }else if(history === memory){
         name && setState({targets: { ...targets, [name]: {...targets[name], memory: el.current}}});
-        switch(el.current.tagName){
-        case 'IMG': preload && setImages(el.current); 
-        break;
-        case 'VIDEO': return;
-        }
+        preload && state.preload.add(el.current);
       }
     }, [el]);
-    const clickHander = to && ((ev) => {
+    const clickHander = to && (async() => {
       const {targets} = state;
+      if(lock) return;
+      lock = true;
       if(group){
         const [groupName, groupIndex] = group;
         const targetGroup = groupStore.get(groupName);
@@ -140,20 +132,70 @@ const RefCompFactory = p1Cache(tagName => {
         for(let [name, el] of target){
           Object.assign(result, {[name]: {...targets[name], browser: el}});
         }
-        console.log(result)
+        memory.push(to);
+        await sleep(0);
+        await Promise.all([...state.preload].map(el => checkPreload(el)));
+        await gotoPostDetail({from: result.img.browser, to: state.targets.postImg.memory});
+        state.preload.clear();
+        // browser.push(to);
       }
+      lock = false;
     });
     return React.createElement(tagName, {ref: el, onClick: clickHander, ...props}, children);
   }
   return Make;
 });
 
-const RefComp = RefCompFactory('section');
-export const Ref = new Proxy(RefComp, {
-  get: (target, property) => RefCompFactory(property.toLowerCase())
-});
+export const gotoPostDetail = async({from, to}) => {
+  const fromRect = from.getBoundingClientRect();
+  const toRect = to.getBoundingClientRect();
+  console.log(fromRect, toRect)
+  const {width, height, left, top} = toRect;
+  Object.assign(from.style, {transformOrigin: 'left top'});
+  // const placeholder = Object.assign(document.createElement('div'), {style: `
+  //   position: absolute;
+  //   width: ${toRect.width}px;
+  //   height: ${toRect.height}px;
+  //   right: 0;
+  //   bottom: 0;
+  // `});
+  // to.parentNode.replaceChild(placeholder, to);
+  // Object.assign(to.style, {
+  //   position: 'absolute',
+  //   width: width+'px',
+  //   height: height+'px',
+  //   left: left+'px',
+  //   top: top+'px',
+  //   opacity: 0
+  // });
+  // fixed.append(to);
+  // fixed.show();
+  tween({
+    from: { x: 0, y: 0, width: fromRect.width, height: fromRect.height, opacity: 1 },
+    to: { x: toRect.x-fromRect.x, y: toRect.y-fromRect.y, width: toRect.width, height: toRect.height, opacity: 1 },
+    duration: 1000
+  }).start(v => styler(from).set(v));
+  // tween({
+  //   from: { x: 0, y: 0, width: fromRect.width, height: fromRect.height, opacity: 0 },
+  //   to: { x: toRect.x-fromRect.x, y: toRect.y-fromRect.y, width: toRect.width, height: toRect.height, opacity: 1 },
+  //   duration: 2000
+  // }).start({
+  //   update: v => {
+  //     styler(to).set(v)
+  //   },
+  //   complete: () => {
+  //     setTimeout(() => {
+  //       Object.assign(to.style, { //렌더링 될 때 저장했던 toImage의 스타일로 다시 초기화 시켜주기
+  //         width, height, position, transform, right, bottom, top, left
+  //       });
+  //       placeholder.parentNode.replaceChild(to, placeholder);
+  //       fixed.hide();
+  //     }, 0);
+  //   }
+  // });
+}
 
-const gotoTransitionPage = async({to, state, seed}) => {
+const gotoTransitionPage = async(to, state, seed) => {
   let nextRef = null;
   let currentRef = null;
   const {targets} = state;
@@ -178,5 +220,17 @@ const gotoTransitionPage = async({to, state, seed}) => {
     fixed.remove(nextRef);
     fixed.hide();
   }
-  if(seed === 'postAnime'){}
 }
+
+let groupUid = 0;
+export const groupRef = (groupUid, index) => refName => ({group: [groupUid, index], name: refName});
+export const groupRefMap = (array, f) => {
+  const current = 'group-uid-'+groupUid++;
+  return array.map((item, i) => f(item, i, groupRef(current, i)));
+}
+
+const RefComp = RefCompFactory('section');
+export const Ref = new Proxy(RefComp, {
+  get: (target, property) => RefCompFactory(property.toLowerCase())
+});
+

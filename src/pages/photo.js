@@ -1,6 +1,6 @@
 import React, {useEffect, useRef} from 'react';
 import {styler, tween, easing} from 'popmotion';
-import {Ref, fixed, checkImages} from '../utils/transition';
+import {Ref, fixed, checkPreload} from '../utils/transition';
 
 function elastic(x, timeFraction) {
   return Math.pow(2, 10 * (timeFraction - 1)) * Math.cos(20 * Math.PI * x / 3 * timeFraction)
@@ -23,9 +23,7 @@ const movingImage = (from, to) => {
   };
 }
 
-// document.createComment
 const animateInitial = async(from, to) => {
-  await Promise.all(checkImages([from, to]));
   const fromRect = from.getBoundingClientRect();
   const toRect = to.getBoundingClientRect();
   const {width, height, position, transform, right, bottom, top, left} = to.style; //렌더링 처음 되었을 때 toImage의 스타일 속성들 저장
@@ -99,8 +97,11 @@ const Photo = () => {
   const toImg = useRef();
   
   useEffect(() => {
-    if(toImg.current) toImg.current.style.opacity = 0;
-    animateInitial(fromImg.current, toImg.current)
+    (async() => {
+      if(toImg.current) toImg.current.style.opacity = 0;
+      await Promise.all(checkPreload([fromImg.current, toImg.current]));
+      await animateInitial(fromImg.current, toImg.current);
+    })()
   }, []);
 
   const clickHandler = async () => {

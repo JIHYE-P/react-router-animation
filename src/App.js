@@ -35,6 +35,7 @@ function App() {
       <VHistoryWrapper>
         {isRender && <Pages />}  
       </VHistoryWrapper>
+      {/* {isRender && <Pages />} */}
       {isRender && <Hidden><Pages /></Hidden>}
     </MemoryRouter>
   </TransitionProvider>
