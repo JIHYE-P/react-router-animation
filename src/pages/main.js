@@ -5,14 +5,14 @@ const Main = () => {
   return <Ref.section name='main'>
     <Link to='/post' seed='fadeInOut'>goto post</Link>
     <br/>
-    <div style={{margin: '30px 0'}}>
+    <Ref.div name='postList' style={{margin: '30px auto', textAlign: 'center'}}>
       {groupRefMap([1,2,3], (item, i, group) => 
-        <Ref.div key={i} to='/post' {...group('inner')}>
+        <Ref.div key={i} to='/post' seed='gotoPost' {...group('inner')}>
           <Ref.img src={`https://picsum.photos/200/150?${item}`} preload={true} {...group('img')} />
           <Ref.h3 {...group('text')}>{item}. title~~~</Ref.h3>
         </Ref.div>
       )}
-    </div>
+    </Ref.div>
   </Ref.section>
 }
 

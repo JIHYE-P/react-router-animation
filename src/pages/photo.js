@@ -80,9 +80,9 @@ const Photo = () => {
   const toImg = useRef();
   
   useEffect(() => {
+    if(toImg.current) toImg.current.style.opacity = 0;
     (async() => {
-      if(toImg.current) toImg.current.style.opacity = 0;
-      await Promise.all(checkPreload([fromImg.current, toImg.current]));
+      await Promise.all([fromImg.current, toImg.current].map(el => checkPreload(el)));
       await animateInitial(fromImg.current, toImg.current);
     })()
   }, []);

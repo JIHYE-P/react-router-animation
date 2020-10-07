@@ -75,20 +75,6 @@ export const HistoryObserver = ({vHistory, children}) => {
   return <>{children}</>
 }
 
-export const setPageTransition = async(to, state, setHandleLock, f) => {
-  const {history: {memory, browser}, handleLock} = state;
-  if(handleLock) return;
-  setHandleLock(true);
-  memory.push(to);
-  await sleep(0);
-  await Promise.all([...state.preload].map(el => checkPreload(el)));
-  await f;
-  state.preload.clear();
-  browser.push(to);
-  setHandleLock(false);  
-}
-
-
 let locked = false;
 export const pushNextPage = (to, seed, state) => {
   return async() => {
@@ -98,8 +84,7 @@ export const pushNextPage = (to, seed, state) => {
     memory.push(to);
     await sleep(0);
     await Promise.all([...state.preload].map(el => checkPreload(el)));
-    await gotoTransitionPage(to, state, seed);
-    console.log(state.targets)
+    await setTransition(to, state, seed);
     state.preload.clear();
     browser.push(to);
     locked = false
@@ -135,6 +120,7 @@ const RefCompFactory = p1Cache(tagName => {
         preload && state.preload.add(el.current);
       }
     }, [el]);
+
     const clickHander = to && (async() => {
       const {targets} = state;
       if(group){
@@ -145,16 +131,8 @@ const RefCompFactory = p1Cache(tagName => {
         for(let [name, el] of target){
           Object.assign(result, {[name]: {...targets[name], browser: el}});
         }
-        // pushNextPage(to, seed, state, setState)();
-        if(locked) return;
-        locked = true;
-        memory.push(to);
-        await sleep(0);
-        await Promise.all([...state.preload].map(el => checkPreload(el)));
-        await gotoPostDetail({from: result.img.browser, to: state.targets.postImg.memory}).start(v => styler(result.img.browser).set(v));
-        state.preload.clear();
-        browser.push(to);
-        locked = false;
+        setState({targets: Object.assign(targets, result)});
+        pushNextPage(to, seed, state, setState)();
       }
     });
     return React.createElement(tagName, {ref: el, onClick: clickHander, ...props}, children);
@@ -162,45 +140,70 @@ const RefCompFactory = p1Cache(tagName => {
   return Make;
 });
 
-const gotoPostDetail = ({from, to}) => {
-  const fromRect = from.getBoundingClientRect();
-  const toRect = to.getBoundingClientRect();
-  return {start: (f) => new Promise(res => tween({
-      from: { x: 0, y: 0, width: fromRect.width, height: fromRect.height},
-      to: { x: 0, y: toRect.y-fromRect.y, width: toRect.width, height: toRect.height},
-      duration: 1000
-    }).start({
-      update: f,
-      complete: res
-    }))
+const setTransition = async(to, state, seed) => {
+  if(seed === 'fadeInOut'){
+    await gotoFadeInOutPage(to, state)
+  }else if(seed === 'gotoPost'){
+    await gotoPostDetail(state.targets)
   }
 }
 
-const gotoTransitionPage = async(to, state, seed) => {
+const gotoFadeInOutPage = async(to, state) => {
   let nextRef = null;
   let currentRef = null;
   const {targets} = state;
-  if(seed === 'fadeInOut'){
-    switch(to){
-    case '/': 
-      nextRef = targets.main.memory;
-      currentRef = targets.post.browser;
-    break;
-    case '/post':
-      nextRef = targets.post.memory;
-      currentRef = targets.main.browser;
-    break
-    }
-    fixed.append(nextRef);
-    tween({duration: 1000}).start(v => {
-      styler(currentRef).set('opacity', 1-v);
-      styler(nextRef).set('opacity', v)
-    });
-    fixed.show();
-    await sleep(1000);
-    fixed.remove(nextRef);
-    fixed.hide();
+  switch(to){
+  case '/': 
+    nextRef = targets.main.memory;
+    currentRef = targets.post.browser;
+  break;
+  case '/post':
+    nextRef = targets.post.memory;
+    currentRef = targets.main.browser;
+  break
   }
+  fixed.append(nextRef);
+  tween({duration: 1000}).start(v => {
+    styler(currentRef).set('opacity', 1-v);
+    styler(nextRef).set('opacity', v)
+  });
+  fixed.show();
+  await sleep(1000);
+  fixed.remove(nextRef);
+  fixed.hide();
+}
+
+const gotoPostDetail = async(targets) => {
+  const from = targets.img.browser;
+  const to = targets.postImg.memory;
+  const list = targets.postList.browser;
+  const fromRect = from.getBoundingClientRect();
+  const toRect = to.getBoundingClientRect();
+  const {width, height, left, top} = fromRect;
+  const placeholder = Object.assign(document.createElement('div'), {style: `width: ${width}px; height: ${height}px; margin: 0 auto;`});
+  from.parentNode.replaceChild(placeholder, from);
+  Object.assign(from.style, {position: 'absolute', left: left+'px', top: top+'px', width: width+'px', height: height+'px'});
+  fixed.append(from);
+  fixed.show();
+  return new Promise(res => {
+    tween({
+      from: {opacity: 1},
+      to: {opacity: 0},
+      duration: 800
+    }).start(v => styler(list).set(v));
+    tween({
+      from: { x: 0, y: 0, width: fromRect.width, height: fromRect.height},
+      to: { x: toRect.x-fromRect.x, y: toRect.y-fromRect.y, width: toRect.width, height: toRect.height},
+      duration: 800
+    }).start({
+      update: v => styler(from).set(v),
+      complete: () => {
+        fixed.remove(from);
+        fixed.hide();
+        res();
+      }
+    });
+  });
 }
 
 let groupUid = 0;
