@@ -595,7 +595,7 @@ const RefCompFactory = pCached(tagName => {
       } 
     }, [el]); 
 
-    const clickHander = to && ev => {
+    const clickHander = to && (ev => {
       const {targets} = state;
       if(group){
         const [groupName, groupIndex] = group;
@@ -609,9 +609,10 @@ const RefCompFactory = pCached(tagName => {
       }
     }
     return React.createElement(tagName, {ref: el, onClick: clickHander, ...props}, children);
-  }
+  })
 });
 ```
+`blogPosts` 리스트에서 클릭한 타켓의 `element`들이 `result` 값으로 콘솔에 찍힌다.
 
 -----
 

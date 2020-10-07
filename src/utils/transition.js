@@ -37,7 +37,7 @@ export const fixed = (() => {
 })();
 
 const p1Cache = f => { 
-  const store = new Map; //네이티브 객체
+  const store = new Map;
   // console.log(store);
   return arg => store.has(arg) ? store.get(arg) : store.set(arg, f(arg)).get(arg);
 }
@@ -57,11 +57,10 @@ export const TransitionProvider = (props) => {
       memory: null,
     },
     targets: {},
-    preload: new Set
+    preload: new Set,
+    locked: false
   });
-  return <Provider {...props} 
-    value={{ state, setState: (obj) => setState(state => Object.assign(state, obj)) }}
-  />
+  return <Provider {...props} value={{ state, setState: (obj) => setState(state => Object.assign(state, obj)) }} />
 }
 
 export const HistoryObserver = ({vHistory, children}) => {
@@ -76,30 +75,46 @@ export const HistoryObserver = ({vHistory, children}) => {
   return <>{children}</>
 }
 
-let lock = false;
+export const setPageTransition = async(to, state, setHandleLock, f) => {
+  const {history: {memory, browser}, handleLock} = state;
+  if(handleLock) return;
+  setHandleLock(true);
+  memory.push(to);
+  await sleep(0);
+  await Promise.all([...state.preload].map(el => checkPreload(el)));
+  await f;
+  state.preload.clear();
+  browser.push(to);
+  setHandleLock(false);  
+}
+
+
+let locked = false;
+export const pushNextPage = (to, seed, state) => {
+  return async() => {
+    const {history: {browser, memory}} = state;
+    if(locked) return;
+    locked = true
+    memory.push(to);
+    await sleep(0);
+    await Promise.all([...state.preload].map(el => checkPreload(el)));
+    await gotoTransitionPage(to, state, seed);
+    console.log(state.targets)
+    state.preload.clear();
+    browser.push(to);
+    locked = false
+  }
+}
+
 export const Link = ({to, seed, ...props}) => {
   return <Consumer>
-    {({state}) => {
-      const {browser, memory} = state.history;
-      const gotoPage = async() => {
-        if(lock) return;
-        lock = true;
-        memory.push(to);
-        await sleep(0);
-        await Promise.all([...state.preload].map(el => checkPreload(el)));
-        await gotoTransitionPage(to, state, seed);
-        state.preload.clear();
-        browser.push(to);
-        lock = false;
-      }
-      return <a {...props} onClick={gotoPage}></a>
-    }}
+    {({state}) => <a {...props} onClick={pushNextPage(to, seed, state)}></a> }
   </Consumer>
 };
 
 const groupStore = new Map;
 const RefCompFactory = p1Cache(tagName => {
-  const Make = ({to, name, group, preload, children, ...props}) => {
+  const Make = ({to, name, group, preload, seed, children, ...props}) => {
     const {state, setState} = useContext(TransitionContext);
     const {history: {browser, memory}} = state;
     const el = useRef(null);
@@ -122,77 +137,43 @@ const RefCompFactory = p1Cache(tagName => {
     }, [el]);
     const clickHander = to && (async() => {
       const {targets} = state;
-      if(lock) return;
-      lock = true;
       if(group){
+        const result = {};
         const [groupName, groupIndex] = group;
         const targetGroup = groupStore.get(groupName);
         const target = targetGroup.get(groupIndex);
-        const result = {};
         for(let [name, el] of target){
           Object.assign(result, {[name]: {...targets[name], browser: el}});
         }
+        // pushNextPage(to, seed, state, setState)();
+        if(locked) return;
+        locked = true;
         memory.push(to);
         await sleep(0);
         await Promise.all([...state.preload].map(el => checkPreload(el)));
-        await gotoPostDetail({from: result.img.browser, to: state.targets.postImg.memory});
+        await gotoPostDetail({from: result.img.browser, to: state.targets.postImg.memory}).start(v => styler(result.img.browser).set(v));
         state.preload.clear();
-        // browser.push(to);
+        browser.push(to);
+        locked = false;
       }
-      lock = false;
     });
     return React.createElement(tagName, {ref: el, onClick: clickHander, ...props}, children);
   }
   return Make;
 });
 
-export const gotoPostDetail = async({from, to}) => {
+const gotoPostDetail = ({from, to}) => {
   const fromRect = from.getBoundingClientRect();
   const toRect = to.getBoundingClientRect();
-  console.log(fromRect, toRect)
-  const {width, height, left, top} = toRect;
-  Object.assign(from.style, {transformOrigin: 'left top'});
-  // const placeholder = Object.assign(document.createElement('div'), {style: `
-  //   position: absolute;
-  //   width: ${toRect.width}px;
-  //   height: ${toRect.height}px;
-  //   right: 0;
-  //   bottom: 0;
-  // `});
-  // to.parentNode.replaceChild(placeholder, to);
-  // Object.assign(to.style, {
-  //   position: 'absolute',
-  //   width: width+'px',
-  //   height: height+'px',
-  //   left: left+'px',
-  //   top: top+'px',
-  //   opacity: 0
-  // });
-  // fixed.append(to);
-  // fixed.show();
-  tween({
-    from: { x: 0, y: 0, width: fromRect.width, height: fromRect.height, opacity: 1 },
-    to: { x: toRect.x-fromRect.x, y: toRect.y-fromRect.y, width: toRect.width, height: toRect.height, opacity: 1 },
-    duration: 1000
-  }).start(v => styler(from).set(v));
-  // tween({
-  //   from: { x: 0, y: 0, width: fromRect.width, height: fromRect.height, opacity: 0 },
-  //   to: { x: toRect.x-fromRect.x, y: toRect.y-fromRect.y, width: toRect.width, height: toRect.height, opacity: 1 },
-  //   duration: 2000
-  // }).start({
-  //   update: v => {
-  //     styler(to).set(v)
-  //   },
-  //   complete: () => {
-  //     setTimeout(() => {
-  //       Object.assign(to.style, { //렌더링 될 때 저장했던 toImage의 스타일로 다시 초기화 시켜주기
-  //         width, height, position, transform, right, bottom, top, left
-  //       });
-  //       placeholder.parentNode.replaceChild(to, placeholder);
-  //       fixed.hide();
-  //     }, 0);
-  //   }
-  // });
+  return {start: (f) => new Promise(res => tween({
+      from: { x: 0, y: 0, width: fromRect.width, height: fromRect.height},
+      to: { x: 0, y: toRect.y-fromRect.y, width: toRect.width, height: toRect.height},
+      duration: 1000
+    }).start({
+      update: f,
+      complete: res
+    }))
+  }
 }
 
 const gotoTransitionPage = async(to, state, seed) => {
