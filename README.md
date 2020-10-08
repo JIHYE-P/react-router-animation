@@ -14,7 +14,8 @@
 `react-router-dom`의 메모리 라우터(`MemoryRouter`)의 `history`를 이용하여 전환되는 페이지를 `push()`하여 메모리 라우터에는 전환 페이지가 렌더링 되고, 브라우저 라우터(`BrowserRouter`)는 현재 페이지로 유지하며 동시에 in, out 애니메이션이 작동되어야 한다.
 
 ```
-MemoryRouter는 실제 주소와는 상관이 없다. 예를들어 주소가 http://localhost:3000/post로 이동되어도 메모리 라우터 안에서는 post페이지로 넘어가지 않는다.
+MemoryRouter는 실제 주소와는 상관이 없다. 
+예를들어 주소가 http://localhost:3000/post로 이동되어도 메모리 라우터 안에서는 post페이지로 넘어가지 않는다.
 ```
 
 ```jsx
@@ -192,7 +193,8 @@ javascript [new Proxy()](https://developer.mozilla.org/ko/docs/Web/JavaScript/Re
 [React.createElement() 내용참고](https://medium.com/react-native-seoul/react-%EB%A6%AC%EC%95%A1%ED%8A%B8%EB%A5%BC-%EC%B2%98%EC%9D%8C%EB%B6%80%ED%84%B0-%EB%B0%B0%EC%9B%8C%EB%B3%B4%EC%9E%90-02-react-createelement%EC%99%80-react-component-%EA%B7%B8%EB%A6%AC%EA%B3%A0-reactdom-render%EC%9D%98-%EB%8F%99%EC%9E%91-%EC%9B%90%EB%A6%AC-41bf8c6d3764)
 ```
 각 JSX 엘리먼트는 단지 React.createElement()를 호출하는 편리한 문법에 불과하다.
-즉, JSX 문법은 React.createElement() 를 호출하기 위한 하나의 방법일 뿐이고 Babel(Javascript 트랜스파일러)을 통해 파싱되고 트랜스 파일링된다.
+즉, JSX 문법은 React.createElement() 를 호출하기 위한 하나의 방법일 뿐이고 
+Babel(Javascript 트랜스파일러)을 통해 파싱되고 트랜스 파일링된다.
 ```
 
 먼저 `React.createElement()` 를 반환하는 함수를 만든다.
@@ -378,7 +380,10 @@ const fixed = (() => {
 
 ```jsx
 let lock = false;
-// 전역변수 lock 은 `Link`의 onClick 함수가 짧은 시간동안 반복적으로 여러번 클릭 시에도 함수가 한 번 실행되도록 블로킹 처리를 해준다.
+/*
+전역변수 lock 은 `Link`의 onClick 함수가 짧은 시간동안 
+반복적으로 여러번 클릭 시에도 함수가 한 번 실행되도록 블로킹 처리를 해준다.
+*/
 const Link = ({to, children, className}) => {
   return <Consumer>{({state}) => {
     const {history: {browser, memory}} = state;
