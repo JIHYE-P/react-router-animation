@@ -44,7 +44,23 @@ const p1Cache = f => {
 
 export const checkPreload = (el) => {
   switch(el.tagName){
-    case 'IMG': return new Promise(res => el.complete ? res() : el.onload = () => res());
+    case 'IMG': return new Promise(res => {
+      if(el.complete) res();
+      else{
+        el.onload = res;
+        el.onerror = res;
+      }
+    });
+    case 'VIDEO': return new Promise(res => {
+      el.muted = true;
+      const videoPlay = el.play();
+      videoPlay && videoPlay.then(() => {
+        el.parse();
+        el.currentTime = 0;
+      })
+      el.oncanplay = res;
+      el.onerror = res;
+    })
   }
 };
 
@@ -179,7 +195,6 @@ const gotoPostDetail = async(targets) => {
   const list = targets.postList.browser;
   const fromRect = from.getBoundingClientRect();
   const toRect = to.getBoundingClientRect();
-  console.log(fromRect, toRect)
   const {width, height, left, top} = fromRect;
   const placeholder = Object.assign(document.createElement('div'), {style: `width: ${width}px; height: ${height}px; margin: 0 auto;`});
   from.parentNode.replaceChild(placeholder, from);
