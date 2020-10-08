@@ -276,21 +276,9 @@ const RefCompFactory = pCached(tagName => {
       if(!el) return;
       const {targets} = state; //이미 저장되어 있는 ref 엘리먼트
       if(history === broswer){
-        setState({targets: {
-          ...targets,
-          [name]: {
-            ...targets[name],
-            broswer: el.current
-          }
-        }})
+        setState({targets: { ...targets, [name]: { ...targets[name], broswer: el.current } }})
       }else if(history === memory){
-        setState({targets: {
-          ...targets,
-          [name]: {
-            ...targets[name],
-            memory: el.current
-          }
-        }})
+        setState({targets: { ...targets, [name]: { ...targets[name], memory: el.current } }})
       }
     }, [el]); 
     return React.createElement(tagName, {ref: el, ...props}, children)
@@ -392,7 +380,7 @@ const fixed = (() => {
 let lock = false;
 // 전역변수 lock 은 `Link`의 onClick 함수가 짧은 시간동안 반복적으로 여러번 클릭 시에도 함수가 한 번 실행되도록 블로킹 처리를 해준다.
 const Link = ({to, children, className}) => {
-  return <Consumer>{({state, refs}) => {
+  return <Consumer>{({state}) => {
     const {history: {browser, memory}} = state;
     const gotoPage = async() => {
       if(lock) return;
@@ -406,7 +394,7 @@ const Link = ({to, children, className}) => {
     return <a onClick={gotoPage} className={className}>{children}</a>
   }}</Consumer>
 }
-const gotoTransitionPage = async({to, state, refs}) => {
+const gotoTransitionPage = async({to, state}) => {
   const {targets} = state;
   let currente;
   let next;
@@ -474,13 +462,14 @@ const Pages = () => <>
 먼저 로딩이 필요한 엘리먼트들의 집합 `Set`을 `context`에 생성해야 `Link`컴포넌트에서 상태를 공유받을 수 있다.
 ```jsx
 const TransitionProvider = ({...props}) => {
-  //...
-  const [images, setImages] = useState(new Set);
-  return <Provider {...props} value={{
-    //...
-    images,
-    setImages: el => setImages(images.add(el));
-  }} />
+  const [state, setState] = useState({
+    history: {
+      browser: null,
+      memory: null;
+    },
+    targets: {},
+    preload: new Set
+  })
 }
 ```
 
@@ -493,7 +482,7 @@ const RefCompFactory = pCached(tagName => {
       if(!el) return;
       //...
       if(history === memory){
-        if(preload && el.current.tagName === 'IMG') && setImages(el.current);
+        if(preload) && state.preload.add(el.current); //이미지,비디오 엘리먼트 Set에 저장
       }
     }, [el]); 
     //...
@@ -503,29 +492,27 @@ const RefCompFactory = pCached(tagName => {
 
 이제 로딩완료 확인이 필요한 이미지들이 `context Set`에 저장되어있다. 저장 되어있는 이미지 엘리먼트들의 로딩 확인이 필요한 비동기 함수를 만든다.   
 ```js
-const checkImages = async(imgs) => {
-  return imgs.map(img => new Promise((resolve, reject) => {
-    img.onload = () => resolve(true)
-    img.onerror = (err) => reject(err)  
-    // 이미지 onload, onerror는 최초 한 번만 실행 되기 때문에, 이미 로딩이 끝난 이미지를 onload로 체크하지 못한다.
-    // 로딩확인이 끝난 이미지 complete 속성이 true로 바뀌는데, true인 이미지는 바로 완료처리를 해줘야한다.
-    img.complete && resolve(true)
-  }))
+const checkPreload = async(el) => {
+  swtich(el.tagName){
+  case 'IMG': return new Promise(res => img.complete ? res() : img.onload = () => res());
+  }
+  // 이미지 onload, onerror는 최초 한 번만 실행 되기 때문에, 이미 로딩이 끝난 이미지를 onload로 체크하지 못한다.
+  // 로딩확인이 끝난 이미지 complete 속성이 true로 바뀌는데, true인 이미지는 바로 완료처리를 해줘야한다.
 }
 ```
 
 `Link` 컴포넌트에서 `context Set` 저장 되어있는 이미지들이 로딩이 끝난 후 트렌지션 애니메이션 함수가 수행되어야야한다.    
-`메모리라우터`의 있는 `ref 엘리먼트`를 가져오기 위해 `(memory.push(to))`메모리라우터 링크가 이동되는 로직이 `checkImages` 함수보다 먼저 실행되어야 `Set`에 저장되어있는 이미지 데이터를 배열로 분해하여 사용할 수 있다.
+`메모리라우터`의 있는 `ref 엘리먼트`를 가져오기 위해 `(memory.push(to))`메모리라우터 링크가 이동되는 로직이 `checkPreload` 함수보다 먼저 실행되어야 `Set`에 저장되어있는 이미지 데이터를 배열로 분해하여 사용할 수 있다.
 ```jsx
 const Link = ({to, children, className}) => {
-  return <PageTransitionConsumer>{({state, refs, images}) => {
+  return <PageTransitionConsumer>{({state}) => {
     const {history: {browser, memory}} = state;
     const gotoPage = async() => {
       if(lock) return;
       lock = true;
       memory.push(to);
       await sleep(0);
-      await Promise.all(await checkImages([...images]));
+      await Promise.all([...state.preload].map(el => checkPreload(el))); // 이미지로드가 끝난 후 애니메이션 함수 실행
       await gotoTransitionPage({to, state, seed});
       browser.push(to);
       lock = false;
@@ -615,7 +602,69 @@ const RefCompFactory = pCached(tagName => {
 `blogPosts` 리스트에서 클릭한 타켓의 `element`들이 `result` 값으로 콘솔에 찍힌다.
 
 -----
+### 7. 엘리먼트 transfrom animation 구현해보기   
+[React Morph](https://brunnolou.github.io/react-morph/)
+위 링크에 접속해서 보이는 데모처럼 버튼 클릭 시 애벌레 이미지가 움직이면서 나비 이미지로 변하는 애니매이션을 구현해보자.   
+먼저 jsx로 이미지가 각자 위치에 있을 수 있도록 `style`을 적용하고, 이미지 엘리먼트에게 애니메이션을 줄 수 있도록 `ref`를 생성한다.
+```js
+const fromImg = useRef(null);
+const toImg = useRef(null);
+return <div>
+  <button onClick={startMovingImage}>start</button>
+  <div style={{width: '800px', height: '400px', margin: '0 auto', background: '#f8f8f8'}}>
+    <img ref={fromImg} src='https://picsum.photos/100/100?1' style={{position: 'absolute', left: 0, top: 0}} />
+    <img ref={toImg} src='https://picsum.photos/100/100?2' style={{position: 'absolute', right: 0, bottom: 0}} />
+  </div>
+</div>
+```
+먼저 애니메이션이 시작되기 전에 이미지 로딩을 먼저 확인 해줘야한다. 로딩 확인을 하지않으면 이미지가 렌더링 되기 전에 `Rect`값을 받아오기 때문에 제대로 나오지 않는다. 또, 2번 이미지는 1번 이미지가 2번째 이미지의 위치로 이동되면서 2번 사진으로 변경되어야 하기 때문에, 처음에 렌더링 될 때 2번 이미지는 보이지 않도록 처리한다. (opacity)   
 
+```js
+useEffect(() => {
+  if(toImg.current) toImg.current.style.opacity = 0; //2번 이미지 감춤
+}, []);
+//버튼 클릭 이벤트 함수
+const startMovingImage = async() => {
+  await Promise.all([from.current, to.current].map(el => checkPreload(el))); //이미지 로딩확인
+  await setAnimation(from.current, to.current); //애니메이션 실행 함수
+}
+```
+
+1번 이미지가 2번 이미지 위치로 이동되기 위해서는 각각 `getBoundingClientRect()` 함수를 이용해서 뷰포트 기준으로 요소 크기와, 위치를 구하고 게산해서 움직일 수 있다.   
+[popmotion](https://popmotion.io/learn/get-started/) 애니메이션 라이브러리를 이용하여 위치를 이동시켜본다.   
+애니메이션이 일어나는 상황들을 먼저 정리해본다.
+1. 애니메이션이 시작하면 1번 이미지는 2번 이미지 위치로 이동되면서 서서히 사라진다.
+2. 감춰진 2번 이미지는 1번 이미지와 같은 위치에서 자기 원래 위치로 움직이면서 서서히 나타난다.   
+
+```js
+const setAnimation = async(fromEl, toEl) => {
+  const from = fromEl.getBoundingClientRect();
+  const to = toEl.getBoundingClientRect();
+  const fromStyle = fromEl.style;
+  //2번 이미지를 1번 이미지 위치로 옮긴다.
+  Object.assign(toEl.style, { 
+    width: fromStyle.width,
+    height: fromStyle.height,
+    left: fromStyle.left,
+    top: fromStyle.top,
+    right: 'initial',
+    bottom: 'initial'
+  });
+  //popmotion 라이브러리 
+  tween({
+    from: {x: 0, y: 0, width: from.width, height: from.height, opacity: 1},
+    to: {x: to.x-from.x, y: to.y-from.y, width: to.width, height: to.height, opacity: 0},
+    duration: 1000
+  }).start(v => styler(fromEl).set(v));
+  tween({
+    from: {x: 0, y: 0, width: from.width, height: from.height, opacity: 0},
+    to: {x: to.x-from.x, y: to.y-from.y, width: to.width, height: to.height, opacity: 1},
+    duration: 1000
+  }).start(v => styler(toEl).set(v));
+}
+```
+
+-----
 ### `참고. React rendering 리액트 렌더링 이해와 최적화 (함수형 컴포넌트)`
 [내용참고](https://medium.com/vingle-tech-blog/react-%EB%A0%8C%EB%8D%94%EB%A7%81-%EC%9D%B4%ED%95%B4%ED%95%98%EA%B8%B0-f255d6569849)   
 리액트에서 `jsx`(return 부분)을 렌더링을 실행하는 조건은

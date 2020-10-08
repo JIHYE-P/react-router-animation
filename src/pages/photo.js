@@ -26,38 +26,13 @@ const animateInitial = async(from, to) => {
   });
   fixed.append(to);
   fixed.show();
-  tween({
-    from: {
-      x: 0,
-      y: 0,
-      width: fromRect.width,
-      height: fromRect.height,
-      opacity: 1
-    },
-    to: {
-      x: toRect.x-fromRect.x,
-      y: toRect.y-fromRect.y,
-      width: toRect.width,
-      height: toRect.height,
-      opacity: 0
-    },
+  tween({ from: { x: 0, y: 0, width: fromRect.width, height: fromRect.height, opacity: 1 },
+    to: { x: toRect.x-fromRect.x, y: toRect.y-fromRect.y, width: toRect.width, height: toRect.height, opacity: 0 },
     duration: 2000
   }).start(v => styler(from).set(v));
   tween({
-    from: {
-      x: 0,
-      y: 0,
-      width: fromRect.width,
-      height: fromRect.height,
-      opacity: 0
-    },
-    to: {
-      x: toRect.x-fromRect.x,
-      y: toRect.y-fromRect.y,
-      width: toRect.width,
-      height: toRect.height,
-      opacity: 1
-    },
+    from: { x: 0, y: 0, width: fromRect.width, height: fromRect.height, opacity: 0 },
+    to: { x: toRect.x-fromRect.x, y: toRect.y-fromRect.y, width: toRect.width, height: toRect.height, opacity: 1 },
     duration: 2000
   }).start({
     update: v => {
@@ -88,9 +63,9 @@ const Photo = () => {
   }, []);
 
   return <Ref.section name='photo'>
-    <div style={{width: '800px', height: '400px', background: '#eee', position: 'relative', margin: '20px auto'}}>
-      <img ref={fromImg} src='https://picsum.photos/100/100?1' style={{position: 'absolute', left: '0', top: '0', objectFit: 'cover'}} />
-      <img ref={toImg} src='https://picsum.photos/300/200' style={{position: 'absolute', right: '0', bottom: "0", objectFit: 'cover'}} />
+    <div style={{width: '800px', height: '500px', background: '#eee', position: 'relative', margin: '20px auto'}}>
+      <img ref={fromImg} src='https://picsum.photos/150/100?1' style={{position: 'absolute', left: '0', top: '0', objectFit: 'cover'}} />
+      <img ref={toImg} src='https://picsum.photos/250/200' style={{position: 'absolute', right: '0', bottom: "0", objectFit: 'cover'}} />
     </div>
   </Ref.section>
 }

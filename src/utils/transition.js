@@ -132,7 +132,7 @@ const RefCompFactory = p1Cache(tagName => {
           Object.assign(result, {[name]: {...targets[name], browser: el}});
         }
         setState({targets: Object.assign(targets, result)});
-        pushNextPage(to, seed, state, setState)();
+        pushNextPage(to, seed, state)();
       }
     });
     return React.createElement(tagName, {ref: el, onClick: clickHander, ...props}, children);
@@ -179,6 +179,7 @@ const gotoPostDetail = async(targets) => {
   const list = targets.postList.browser;
   const fromRect = from.getBoundingClientRect();
   const toRect = to.getBoundingClientRect();
+  console.log(fromRect, toRect)
   const {width, height, left, top} = fromRect;
   const placeholder = Object.assign(document.createElement('div'), {style: `width: ${width}px; height: ${height}px; margin: 0 auto;`});
   from.parentNode.replaceChild(placeholder, from);
